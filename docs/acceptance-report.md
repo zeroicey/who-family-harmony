@@ -414,3 +414,67 @@ P2.1 首页核心链路 PASS；P2.2 社区列表核心链路 PASS（到底文案
 **不通过（定点复验）：Blocker 0 / Major 0 / Minor 1。**
 
 D-P2-01 已通过并关闭：发布页稳定显示后端四个有效分类，加载期间不暴露旧分类，逐项选中正常，使用“日常分享”完成了真实的 `check/text → prepare-post → finalize-post` 发布链路，新动态位于社区首位。D-P2-02 未通过：社区自然滚到最后一页仍显示“上拉加载更多”，仅在切 Tab 触发重渲染后恢复正确文案。AI 真实润色、图片选中后上传仍按既有环境限制标 NOT TESTED，不计缺陷。
+
+## 页面验收复验 2（P2.1–P2.4，4704e2a）
+
+- 复验日期：2026-11-11
+- 分支：`feat/harmony-parity`
+- 冻结点：`4704e2aa2b28459badad522e7e0e4211577dc112`
+- 冻结状态：开始复验时 `git status --short` 为空；复验期间未修改 `entry/`、构建配置、`docs/parity-plan.md` 或 `env.ets`，仅写入本报告与 `docs/acceptance/screenshots/`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，API 24
+- 后端：生产 `https://api.hcyj.xyz`；日志均为 `token=present`，分页、点赞请求返回 200
+- 安装包：`entry-default-unsigned.hap`，覆盖安装成功并冷启动验证
+- 复验范围：仅上轮遗留的 D-P2-02，以及其修复涉及的社区/我的动态 footer 与四 Tab、点赞、详情回归
+
+### 门槛
+
+| 项 | 结果 | 证据 / 备注 |
+| --- | --- | --- |
+| 冻结点与工作区 | PASS | `git rev-parse HEAD` 为 `4704e2aa2b28459badad522e7e0e4211577dc112`；开始前 `git status --short` 为空 |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Defects: 19; Errors: 0; Warns: 19`，无 error；warning 全部位于 `AppIcon`/`MiniProgramCards`/`common/*`/`ServiceSchedule`，与本次改动文件无关 |
+| 路由与图片组件 | PASS | `preflight`：注册路由 30 个，Web 图片引用为 0 |
+| 安装与启动 | PASS | `hdc install -r` 成功；`aa force-stop` 后冷启动，进程前台运行，无崩溃或白屏 |
+| 参考实现完整性 | PASS | 未读取或修改 `../who_family_wechat` |
+
+### 定点复验
+
+| ID | 结果 | 证据摘要 |
+| --- | --- | --- |
+| D-P2-02 社区末页提示 | **PASS（已关闭）** | 冷启动进入社区后连续翻到最后一页，最后一批数据返回后底部**立即**显示“没有更多数据了”，全程未切 Tab；继续上拉 6 次文案保持不变且不再发请求；下拉刷新后分页从第一页重新开始，再次到底仍显示“没有更多数据了” |
+| D-P2-02 我的动态末页 | PASS | “我的”页滚到自有动态末尾，底部显示“没有更多数据了” |
+
+#### D-P2-02（PASS）
+
+| 检查项 | 结果 | 运行态证据 |
+| --- | --- | --- |
+| 冷启动末页立即更新 | PASS | 冷启动后仅点击一次“社区”入口，未切换 Tab。请求依次为 `lastPostId=111` → 20 条、`lastPostId=84` → 20 条、`lastPostId=25` → 13 条；13 条返回后首次抓取布局即读到“没有更多数据了”。见 [`accept-p2-fix2-community-end.png`](acceptance/screenshots/accept-p2-fix2-community-end.png) |
+| 继续上拉保持正确 | PASS | 到底后继续上拉 6 次，布局持续为“没有更多数据了”；应用日志最后一条分页请求仍停在末页，未再发出 `recommend-post`。见 [`accept-p2-fix2-community-end-repeat.png`](acceptance/screenshots/accept-p2-fix2-community-end-repeat.png) |
+| 下拉刷新后状态恢复 | PASS | 在顶部下拉触发 `GET /community/recommend-post`（无 cursor）返回 20 条；随后翻页重新从 `lastPostId=111`、`84`、`25` 拉取，说明 `hasMore` 已复位并继续分页，未被上轮的“没有更多数据了”卡死；再次到底显示“没有更多数据了”。见 [`accept-p2-fix2-community-refresh.png`](acceptance/screenshots/accept-p2-fix2-community-refresh.png) |
+| 我的动态末页 | PASS | “我的”页滚到末尾，底部显示“没有更多数据了”。见 [`accept-p2-fix2-mine-end.png`](acceptance/screenshots/accept-p2-fix2-mine-end.png) |
+
+说明：
+
+- 本轮末页为 `lastPostId=25` 返回 13 条（上轮为 `lastPostId=26` 返回 14 条），差额对应提交说明中已清理的测试动态 `197`；末页条数小于 20 的判定路径一致。
+- 页面 footer 是列表唯一尾部节点，`Scroll.onScrollEdge(Edge.Bottom)` 会在到达页 1 边界时立即触发下一页，因此“上拉加载更多”只存在于请求返回前的瞬时态，未截到静态帧；刷新后分页能从页 1 继续（日志中的 `lastPostId=111` 请求）证明该状态下 `hasMore=true`，不存在残留“没有更多数据了”。
+
+### 回归
+
+| 项目 | 结果 | 证据 |
+| --- | --- | --- |
+| 四 Tab | PASS | “跑腿”显示真实跑腿任务；“二手”“评分”显示参考实现中的开发中占位；“动态”恢复真实动态。见 [`accept-p2-fix2-tab-errand.png`](acceptance/screenshots/accept-p2-fix2-tab-errand.png)、[`accept-p2-fix2-tab-secondhand.png`](acceptance/screenshots/accept-p2-fix2-tab-secondhand.png)、[`accept-p2-fix2-tab-rating.png`](acceptance/screenshots/accept-p2-fix2-tab-rating.png)、[`accept-p2-fix2-tab-dynamic.png`](acceptance/screenshots/accept-p2-fix2-tab-dynamic.png) |
+| 点赞 | PASS | 对动态 `177` 点赞/取消：计数 `1 → 2 → 1`，两次 `POST /community/like-post` 均 200，最终恢复原状态。见 [`accept-p2-fix2-like.png`](acceptance/screenshots/accept-p2-fix2-like.png) |
+| 进入详情/返回 | PASS | 点击动态进入“动态详情”，正文与空评论态正常；点 PageHeader 返回后社区列表与点赞计数保持。见 [`accept-p2-fix2-detail.png`](acceptance/screenshots/accept-p2-fix2-detail.png) |
+| S3 图片 | PASS | 末页与刷新后首屏图片均正常解码显示，无占位/破图 |
+| token | PASS | 全部请求 `token=present`，未出现 401 或 Mock 降级 |
+
+### 测试数据
+
+- 点赞已现场取消，动态 `177` 计数恢复为 `1`。
+- 未新建/删除动态、评论或回复；未操作生产测试数据。
+
+### 结论
+
+**通过：Blocker 0 / Major 0 / Minor 0。**
+
+D-P2-02 已关闭：社区冷启动翻到末页后底部文案即时变为“没有更多数据了”，继续上拉保持稳定；下拉刷新后分页正确复位并可从第一页继续加载，末尾状态仍正确；我的动态末页表现一致。四 Tab、点赞、详情进入/返回回归均通过。AI 真实流式与图片上传仍受既有环境限制，不在本轮范围。
