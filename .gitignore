@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# HarmonyOS / DevEco Studio
+/node_modules
+/oh_modules
+**/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+**/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+/.appanalyzer
+**/.preview
+**/.idea
+
+# 本地私密配置（真实 token / API Key 只放本机）
+entry/src/main/ets/api/env.ets
+
+# 签名材料
+*.p12
+*.cer
+*.p7b
+*.jks
+*.keystore
+signing/

@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "互成一家校园生活服务助手"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "互成一家 · 鸿蒙版"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "互成一家"
+    }
+  ]
+}
