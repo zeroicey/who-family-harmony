@@ -34,7 +34,7 @@ export class HomeMock {
       new HomeService('schedule', '查询课表服务', '查询当前学期的课表，方便你及时了解自己的课程安排。', 'https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEECPRpAZAXQl3cBfhxDxuSt1AojYoeHQAC7iAAAtCQCFQvkTsfSeUnwjYE.jpg', '', '4.8', '1580', 'pages/ServiceSchedule'),
       new HomeService('grade', '查询成绩服务', '查询当前学期的成绩，方便你及时了解自己的学习情况。', 'https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEECP5pAZDT2lKDbMs1BC1kkTo76bcj3AAC-CAAAtCQCFQGU12qYNcw8DYE.jpg', '', '4.8', '1580', 'pages/ServiceGrade'),
       new HomeService('print', '远程打印服务', '宿舍也能轻松打印！手机一键上传，即刻获取文件。', 'https://api.hcyj.xyz/images/dnfw.png', '¥0.2/页', '4.9', '2350', 'pages/ServicePrint'),
-      new HomeService('more', '更多服务', '更多精彩服务即将上线！我们正在精心准备更多便捷实用的校园服务。', 'https://api.hcyj.xyz/images/gdfw.jpg', '???¥', '5.0', '5000', '')
+      new HomeService('more', '更多服务', '更多精彩服务即将上线！我们正在精心准备更多便捷实用的校园服务。', 'https://api.hcyj.xyz/images/gdfw.jpg', '???¥', '5.0', '5000', 'pages/Service')
     ];
   }
   /** 校园动态（与小程序 CampusNotifications.vue 一致，7 条）。 */

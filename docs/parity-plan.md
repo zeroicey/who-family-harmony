@@ -103,10 +103,10 @@
 
 | ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| P2.1 | 首页 `Index.ets` | 轮播/服务/通知写死（与小程序一致）；招聘卡、问候语、日期、布局细节需逐项比对 | 对齐 `HomeHeader`、`ServiceRecommend`、`CampusNotifications`、`RecruitmentCard` 的区块顺序/文案/尺寸；服务入口跳转正确；招聘卡跳详情 | 与小程序首页逐区块对照无缺项；滚动/点击正常 | TODO |
-| P2.2 | 社区列表 `Community.ets` | 缺分类 Tab、动态类型卡片（好物/跑腿/二手/评分）、图片九宫格、分页、下拉刷新、回到顶部；点赞为局部更新 | 对齐 `PostCard`/`ErrandCard`/`Rating`/`SecondHand`；实现 `postTypes`、`lastPostId` 分页、下拉刷新、乐观点赞 | 四类卡片可展示；分页/刷新/点赞与小程序一致 | TODO |
-| P2.3 | 社区详情 `CommunityDetail.ets` | 缺作者信息完整布局、图片网格、统计栏、二级回复、评论点赞/删除、分页 | 对齐 `components/community/detail/*`；实现一级/二级评论、回复、删除、加载更多 | 评论两级完整；删除/回复可用；图片网格正确 | TODO |
-| P2.4 | 发布动态 `CommunityPublish.ets` | 分类是手输文本；无选图；AI 润色是假 Toast；无内容检查 | 分类选择器；最多 3/9 张图（以小程序为准）；`prepare-post → 上传 → finalize-post`；AI 流式润色；文本/图片检查 | 纯文字与带图发布均成功；润色可用；检查失败有提示 | TODO |
+| P2.1 | 首页 `Index.ets` | 轮播/服务/通知写死（与小程序一致）；招聘卡、问候语、日期、布局细节需逐项比对 | 对齐 `HomeHeader`、`ServiceRecommend`、`CampusNotifications`、`RecruitmentCard` 的区块顺序/文案/尺寸；服务入口跳转正确；招聘卡跳详情 | 与小程序首页逐区块对照无缺项；滚动/点击正常 | DONE 2026-11-11 @coding-agent |
+| P2.2 | 社区列表 `Community.ets` | 缺分类 Tab、动态类型卡片（好物/跑腿/二手/评分）、图片九宫格、分页、下拉刷新、回到顶部；点赞为局部更新 | 对齐 `PostCard`/`ErrandCard`/`Rating`/`SecondHand`；实现 `postTypes`、`lastPostId` 分页、下拉刷新、乐观点赞 | 四类卡片可展示；分页/刷新/点赞与小程序一致 | DONE 2026-11-11 @coding-agent（顶部四 Tab 固定，`postTypes` 用于发布分类；二手/评分保持参考的“开发中”占位） |
+| P2.3 | 社区详情 `CommunityDetail.ets` | 缺作者信息完整布局、图片网格、统计栏、二级回复、评论点赞/删除、分页 | 对齐 `components/community/detail/*`；实现一级/二级评论、回复、删除、加载更多 | 评论两级完整；删除/回复可用；图片网格正确 | DONE 2026-11-11 @coding-agent（参考实现无“评论点赞”，未新增；加载更多评论按“满 10 条”显示） |
+| P2.4 | 发布动态 `CommunityPublish.ets` | 分类是手输文本；无选图；AI 润色是假 Toast；无内容检查 | 分类选择器；最多 3/9 张图（以小程序为准）；`prepare-post → 上传 → finalize-post`；AI 流式润色；文本/图片检查 | 纯文字与带图发布均成功；润色可用；检查失败有提示 | DONE 2026-11-11 @coding-agent（最多 4 张，与参考一致；图片发布链路未实测） |
 | P2.5 | 招聘列表 `JobList.ets` | 缺分类 Tab、筛选/搜索、卡片信息密度 | 对齐 `CategoryTabs` + `RecruitCard`；分类数据来自 `JobApi.types`（如后端有） | 分类切换正确；卡片信息与小程序一致 | TODO |
 | P2.6 | 招聘详情 `JobDetail.ets` | 基础信息/收藏已有；投递、公司信息、福利标签、底部操作栏需比对 | 对齐 `pages/recruit/detail.vue` 全区块；投递状态与接口一致 | 所有区块齐全；投递/收藏状态可持久 | TODO |
 
@@ -258,3 +258,15 @@ P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F1
 | 2026-11-11 | F11 | Mock 按域拆分到 `ets/mock/`，迁移知识 28 篇+正文、校园动态 7 条、服务卡 5 张、协议全文；`MockData` 保留门面 |
 | 2026-11-11 | 工具链 | 配置 cormorant MCP；新增 `docs/tech-notes.md` 与 `/harmony-api-research` skill；P2.17 图表接入 dataviz |
 | 2026-11-11 | M1–M6 / m1–m3 | 复修验收缺陷：公共组件接入、上传链路与选图/选文件、内容检查、三处分页/刷新/回顶、知识正文完整迁移、助手自动滚动、社区失败降级、NetImage URL 重置；新增设置页上传链路自检。预检 `BUILD SUCCESSFUL`、CodeLinter 0 error / 19 warning；截图见 `docs/acceptance/screenshots/fix-*.png`；真实成功链路仍受 401 阻塞，详见“验收缺陷复修”节 |
+| 2026-11-11 | P2.1 | 首页按 `HomeHeader`/`ServiceRecommend`/`CampusNotifications`/`RecruitmentCard` 对齐：轮播渐变遮罩与指示点、日期/问候语、5 张服务卡（含“更多服务”→`pages/Service`）、校园动态、招聘卡类型/单位/截止日期与空/加载态；“查看更多”修正为只跳 `JobList`（不再误切社区 Tab）。真实接口（用户、推荐岗位）已验证。截图 `p2-home-*.png` |
+| 2026-11-11 | P2.2 | 社区列表：4 个固定 Tab（动态/跑腿/二手/评分，图标尺寸按参考）、动态多图网格（1/2/3/4 图）与点击预览、作者品牌标签（完整 26 个、旋转角标）、相对时间、乐观点赞+失败回滚、点赞/评论数从详情回传同步、发布后自动刷新、分页 `lastPostId`、下拉刷新、到底文案、回到顶部、关注本地切换；跑腿图标补齐 position/yuan/more 资源映射。真实接口分页/点赞/刷新已验证。二手/评分按参考保持“开发中”占位。截图 `p2-community-*.png` |
+| 2026-11-11 | P2.3 | 社区详情：作者区/标题/正文/4 图网格（单图 16:9）/统计栏、一级评论（头像、作者、相对时间、内容、回复/删除）、二级回复（查看回复、加载更多、删除）、`lastCommentId` 分页、输入框（回复目标提示、200 字）、发送前后端 `/check/text`、删除确认、返回列表计数同步；评论 id 使用后端返回值以支持删除。真实接口已验证新增/删除一级评论与二级回复、点赞。评论点赞参考实现不存在，未实现。截图 `p2-community-detail-*.png`、`p2-detail-*.png` |
+| 2026-11-11 | P2.4 | 发布动态：分类改为后端 `postTypes` 胶囊选择器（失败用参考兜底，不再手输）、最多 4 图与预览/删除、标题 99/正文 10000 限制、`check/text → prepare-post → finalize-post`（文本发布真实验证成功；修正后端数字 `communityId` 解析）、图片发布链路保留并在发布后清空表单/刷新社区第一页。AI 润色改为 `HelperApi.polishStream` 流式建议面板（查看/应用/取消/撤回/重试），服务不可用时保留原文并显示错误，不再假 Toast。截图 `p2-publish-*.png` |
+
+### P2.1–P2.4 未验证项与环境限制（2026-11-11）
+
+- **图片资源 SSL**：后端 `imgList` 指向 `https://s3.hcyj.xyz:59000/...`，该域名证书无法通过系统校验（`curl` 直接失败，`-k` 返回 200）。ArkUI `Image` 按既定约束不做 SSL 放行，因此真实动态图片显示为 `NetImage` 占位；小程序不受此限制。属后端证书/环境问题，非页面代码缺陷。
+- **图片发布**：模拟器相册为空且相机入口不可用，未能实际选择图片；`prepare-post → check/img → PUT → img-uploaded → finalize-post` 仅做代码走查，未跑通真实上传（S3 证书同样会影响 PUT）。文本发布已真实跑通（社区动态 id 195）。
+- **AI 润色**：`DASHSCOPE_API_KEY` 仍为无效 key，已实测错误面板与“保留原文”，逐字流式输出 **NOT TESTED**。
+- **评论点赞**：参考实现 `CommentItem.vue` 无点赞入口，按“以参考源码为准”未新增。
+- **发布测试数据**：真实验证在社区留下两条自测动态（id 194、195，标题含“自测”），后端未提供删除动态接口，需人工清理。

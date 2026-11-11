@@ -59,6 +59,15 @@ export struct AppIcon {
     if (this.name === 'community_secondhand') {
       return $r('app.media.icon_community_secondhand');
     }
+    if (this.name === 'community_position') {
+      return $r('app.media.icon_community_position');
+    }
+    if (this.name === 'community_yuan') {
+      return $r('app.media.icon_community_yuan');
+    }
+    if (this.name === 'community_more') {
+      return $r('app.media.icon_community_more');
+    }
     if (this.name === 'community_trash') {
       return $r('app.media.icon_community_trash');
     }

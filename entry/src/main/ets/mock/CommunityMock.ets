@@ -2,22 +2,35 @@ import { CommunityPost, PostType } from '../models/CommunityPost';
 import { ErrandTask } from '../models/MockModels';
 
 export class CommunityMock {
+  /** 发布分类兜底（后端 /community/postTypes 失败时使用，取自社区参考文案）。 */
   static postTypes(): PostType[] {
     return [
-      new PostType('all', '全部'),
-      new PostType('dynamic', '动态'),
-      new PostType('errand', '跑腿'),
-      new PostType('secondhand', '二手'),
-      new PostType('rating', '评分')
+      new PostType('1', '好物推荐'),
+      new PostType('2', '跑腿'),
+      new PostType('3', '二手'),
+      new PostType('4', '评分')
     ];
   }
   static posts(): CommunityPost[] {
-    return [
-      new CommunityPost('post-1', 'dynamic', '梁胤佳', '有人一起去图书馆自习吗', '今晚 19:00 到 21:00 准备复习 ArkTS 页面路由和组件封装。', 'https://api.hcyj.xyz/images/dnfw.png', 16, false, '今天 18:20'),
-      new CommunityPost('post-2', 'errand', '校园跑腿同学', '帮取 SOVO 快递', '取件码已准备好，宿舍区 20:00 前送达，备注楼栋即可。', 'https://api.hcyj.xyz/images/gdfw.jpg', 28, true, '今天 17:10'),
-      new CommunityPost('post-3', 'secondhand', '古栋', '出一套算法资料', '动态规划、图论和面试题整理，适合期末复习和竞赛入门。', 'https://api.hcyj.xyz/images/dngg.jpg', 9, false, '昨天 21:30'),
-      new CommunityPost('post-4', 'rating', '郭嘉荣', '图书馆二楼自习体验', '插座充足，空调偏冷，晚高峰座位紧张，建议 18 点前到。', 'https://api.hcyj.xyz/images/dnfw.png', 12, false, '昨天 20:05')
-    ];
+    // 兜底数据覆盖 1/2/3/4 图布局，便于无网络时仍能看到多图网格。
+    const first = new CommunityPost('post-1', 'dynamic', '梁胤佳', '有人一起去图书馆自习吗',
+      '今晚 19:00 到 21:00 准备复习 ArkTS 页面路由和组件封装。',
+      'https://api.hcyj.xyz/images/dnfw.png', 16, false, '今天 18:20');
+    const second = new CommunityPost('post-2', 'errand', '校园跑腿同学', '帮取 SOVO 快递',
+      '取件码已准备好，宿舍区 20:00 前送达，备注楼栋即可。',
+      'https://api.hcyj.xyz/images/gdfw.jpg', 28, true, '今天 17:10');
+    second.imgList = ['https://api.hcyj.xyz/images/gdfw.jpg', 'https://api.hcyj.xyz/images/dngg.jpg'];
+    const third = new CommunityPost('post-3', 'secondhand', '古栋', '出一套算法资料',
+      '动态规划、图论和面试题整理，适合期末复习和竞赛入门。',
+      'https://api.hcyj.xyz/images/dngg.jpg', 9, false, '昨天 21:30');
+    third.imgList = ['https://api.hcyj.xyz/images/dngg.jpg', 'https://api.hcyj.xyz/images/dnfw.png',
+      'https://api.hcyj.xyz/images/gdfw.jpg'];
+    const fourth = new CommunityPost('post-4', 'rating', '郭嘉荣', '图书馆二楼自习体验',
+      '插座充足，空调偏冷，晚高峰座位紧张，建议 18 点前到。',
+      'https://api.hcyj.xyz/images/dnfw.png', 12, false, '昨天 20:05');
+    fourth.imgList = ['https://api.hcyj.xyz/images/dnfw.png', 'https://api.hcyj.xyz/images/dngg.jpg',
+      'https://api.hcyj.xyz/images/gdfw.jpg', 'https://api.hcyj.xyz/images/dnfw.png'];
+    return [first, second, third, fourth];
   }
   static errandTasks(): ErrandTask[] {
     return [

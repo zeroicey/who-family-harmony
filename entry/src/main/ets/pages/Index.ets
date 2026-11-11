@@ -23,7 +23,8 @@ struct Index {
   @State banners: Banner[] = MockData.banners();
   @State selectedIndex: number = 0;
   @State userName: string = '同学';
-  @State jobs: Job[] = MockData.jobs();
+  @State jobs: Job[] = [];
+  @State jobsLoading: boolean = true;
 
   async aboutToAppear(): Promise<void> {
     await AuthStore.isLogin(this.context);
@@ -45,12 +46,12 @@ struct Index {
 
     try {
       const remoteJobs = await JobApi.recommend(token, apiEnvironment);
-      if (remoteJobs.length > 0) {
-        this.jobs = remoteJobs;
-      }
+      this.jobs = remoteJobs.length > 0 ? remoteJobs : MockData.jobs();
     } catch (err) {
       LogUtil.warn('home', `jobs failed ${(err as Error).message}`);
       this.jobs = MockData.jobs();
+    } finally {
+      this.jobsLoading = false;
     }
   }
 
@@ -158,7 +159,7 @@ struct Index {
           Stack({ alignContent: Alignment.BottomStart }) {
             NetImage({
               imageUrl: item.imageUrl,
-              imageHeight: 178,
+              imageHeight: 169,
               imageRadius: 0,
               fitMode: 'cover'
             })
@@ -171,13 +172,16 @@ struct Index {
                 .fontColor('#FFFFFF')
               Text(item.summary)
                 .fontSize(12)
-                .fontColor('#F2F4F7')
+                .fontColor('rgba(255, 255, 255, 0.9)')
                 .margin({ top: 4 })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
             .padding(15)
-            .backgroundColor('#88000000')
+            .linearGradient({
+              angle: 180,
+              colors: [['#B3000000', 0.0], ['#00000000', 1.0]]
+            })
           }
           .width('100%')
           .height('100%')
@@ -187,8 +191,11 @@ struct Index {
       }
       .autoPlay(true)
       .loop(true)
+      .interval(3000)
+      .duration(500)
       .indicator(true)
-      .height(178)
+      .indicatorStyle({ color: 'rgba(255, 255, 255, 0.5)', selectedColor: '#FFFFFF' })
+      .height(169)
       .borderRadius(16)
       .margin({ left: 20, right: 20, bottom: 16 })
     }
@@ -378,8 +385,11 @@ struct Index {
           Text('')
             .width(4)
             .height(20)
-            .backgroundColor('#1890ff')
-            .borderRadius(3)
+            .borderRadius(2)
+            .linearGradient({
+              angle: 180,
+              colors: [['#1890ff', 0.0], ['#36a6ff', 1.0]]
+            })
             .margin({ right: 10 })
           Text('近期招聘')
             .fontSize(16)
@@ -394,12 +404,36 @@ struct Index {
           .backgroundColor('#141890ff')
           .borderRadius(16)
           .onClick(() => {
-            this.selectedIndex = 1;
             router.pushUrl({ url: 'pages/JobList' });
           })
       }
       .width('100%')
       .margin({ bottom: 14 })
+
+      if (this.jobsLoading && this.jobs.length === 0) {
+        Column() {
+          LoadingProgress()
+            .width(22)
+            .height(22)
+            .color('#1890ff')
+          Text('正在加载...')
+            .fontSize(12)
+            .fontColor('#999999')
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .padding({ top: 22, bottom: 22 })
+        .alignItems(HorizontalAlign.Center)
+      } else if (this.jobs.length === 0) {
+        Column() {
+          Text('暂无招聘信息')
+            .fontSize(13)
+            .fontColor('#aaaaaa')
+        }
+        .width('100%')
+        .padding({ top: 38, bottom: 38 })
+        .alignItems(HorizontalAlign.Center)
+      }
 
       ForEach(this.jobs.slice(0, 5), (item: Job) => {
         Row() {
@@ -424,6 +458,13 @@ struct Index {
                 .padding({ left: 8, right: 8, top: 4, bottom: 4 })
                 .backgroundColor('#f5f7fa')
                 .borderRadius(12)
+              if (item.endTime.length > 0) {
+                Text(`截止: ${item.endTime}`)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor('#fa8c16')
+                  .margin({ left: 10 })
+              }
             }
             .width('100%')
             .margin({ top: 9 })

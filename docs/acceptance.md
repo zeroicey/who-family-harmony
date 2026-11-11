@@ -195,6 +195,8 @@ node /Applications/DevEco-Studio.app/Contents/plugins/codelinter/run/index.js \
 | 无支付 | 产品未实现 | 不作为缺陷 |
 | 系统状态栏/字体渲染差异 | 平台差异 | 不作为缺陷，但布局不得错位 |
 | 无本地后端 cleartext 配置 | 本机网络环境限制 | 生产 HTTPS 下不构成缺陷；本地模式问题单独记录 |
+| 未提供 `DASHSCOPE_API_KEY` | 负责人暂时无法提供 key | AI 真实流式/分析/润色一律标 NOT TESTED，**不作为缺陷**；只验 key 缺失/无效时的错误提示与代码路径。填 key 后无需改代码，重新构建即用 |
+| AI key 有效但网络不可达 | 环境限制 | 只验错误提示与重试；真实输出标 NOT TESTED |
 
 新增偏差必须写入报告并经项目负责人确认，编码 agent 不能自行宣布"允许偏差"。
 

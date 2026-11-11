@@ -41,14 +41,39 @@ export class PostComment {
   content: string;
   createTime: string;
   uid: string;
+  avatarId: string;
+  replyCount: number;
+  replyList: PostComment[];
+  replyCursor: string;
+  replyHasMore: boolean;
+  showReplies: boolean;
 
-  constructor(id: string = '', author: string = '', content: string = '', createTime: string = '', uid: string = '') {
+  constructor(id: string = '', author: string = '', content: string = '', createTime: string = '', uid: string = '',
+    avatarId: string = '', replyCount: number = 0) {
     this.id = id;
     this.author = author;
     this.content = content;
     this.createTime = createTime;
     this.uid = uid;
+    this.avatarId = avatarId;
+    this.replyCount = replyCount;
+    this.replyList = [];
+    this.replyCursor = '';
+    this.replyHasMore = false;
+    this.showReplies = false;
   }
+}
+
+class CommentResponse {
+  id: string | number = '';
+  username: string = '';
+  author: string = '';
+  content: string = '';
+  createTime: string = '';
+  uid: string | number = '';
+  avatarId: string | number = '';
+  avaterId: string | number = '';
+  replyCount: number | string = 0;
 }
 
 class CommentPayload {
@@ -82,9 +107,10 @@ export class PrepareImageItem {
 }
 
 class PreparePostResponse {
-  id: string = '';
-  communityId: string = '';
-  communityImageList: PrepareImageItem[] = [];
+  // 后端社区 id 为数字（如 194），统一按 string | number 接收后再转字符串。
+  id: string | number = '';
+  communityId: string | number = '';
+  communityImageList: PrepareImageItem[] | null = [];
 }
 
 class PostIdPayload {
@@ -222,39 +248,71 @@ export class CommunityApi {
   }
 
   /** 一级评论；lastCommentId 为空取第一页（与小程序 api/community.js 一致）。 */
+  /** 后端评论字段为 username/avaterId，这里统一映射为页面使用的 author/avatarId。 */
+  private static normalizeComment(raw: CommentResponse): PostComment {
+    const author = raw.username.length > 0 ? raw.username : raw.author;
+    const avatarId = CommunityApi.safeText(raw.avatarId).length > 0
+      ? CommunityApi.safeText(raw.avatarId) : CommunityApi.safeText(raw.avaterId);
+    return new PostComment(
+      CommunityApi.safeText(raw.id),
+      author,
+      raw.content,
+      raw.createTime,
+      CommunityApi.safeText(raw.uid),
+      avatarId,
+      CommunityApi.safeNumber(raw.replyCount)
+    );
+  }
+
+  private static normalizeComments(rawComments: CommentResponse[] | null): PostComment[] {
+    const comments: PostComment[] = [];
+    if (rawComments === null) {
+      return comments;
+    }
+    rawComments.forEach((raw: CommentResponse) => {
+      comments.push(CommunityApi.normalizeComment(raw));
+    });
+    return comments;
+  }
+
   static async comments(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
     lastCommentId: string = ''): Promise<PostComment[]> {
     const cursor = lastCommentId.length > 0 ? `&lastCommentId=${encodeURIComponent(lastCommentId)}` : '';
-    const result = await HttpClient.get<PostComment[]>(
+    const result = await HttpClient.get<CommentResponse[]>(
       `/community/post-comment?id=${encodeURIComponent(id)}${cursor}`, token, apiEnvironment);
-    return result.data === null ? [] : result.data;
+    return CommunityApi.normalizeComments(result.data);
   }
 
   static async replies(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
     lastCommentId: string = ''): Promise<PostComment[]> {
     const cursor = lastCommentId.length > 0 ? `&lastCommentId=${encodeURIComponent(lastCommentId)}` : '';
-    const result = await HttpClient.get<PostComment[]>(
+    const result = await HttpClient.get<CommentResponse[]>(
       `/community/post-comment-reply?id=${encodeURIComponent(id)}${cursor}`, token, apiEnvironment);
-    return result.data === null ? [] : result.data;
+    return CommunityApi.normalizeComments(result.data);
   }
 
+  /** 返回后端生成的评论 id（用于本地插入后立即支持删除，与小程序一致）。 */
   static async addComment(token: string, postId: string, content: string,
-    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<string> {
     // 与小程序 api/community.js 一致：先检查文本，未通过则不发评论。
     const check = await CheckApi.checkText(token, new CommentPayload(postId, content), apiEnvironment);
     if (!check.passed) {
       throw new Error(check.message);
     }
-    await HttpClient.post<ApiEmptyResponse>('/community/post-comment', token, new CommentPayload(postId, content), apiEnvironment);
+    const result = await HttpClient.post<string | number>('/community/post-comment', token,
+      new CommentPayload(postId, content), apiEnvironment);
+    return result.data === null ? '' : `${result.data}`;
   }
 
   static async addReply(token: string, commentId: string, content: string,
-    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<string> {
     const check = await CheckApi.checkText(token, new CommentPayload(commentId, content), apiEnvironment);
     if (!check.passed) {
       throw new Error(check.message);
     }
-    await HttpClient.post<ApiEmptyResponse>('/community/post-comment-reply', token, new CommentPayload(commentId, content), apiEnvironment);
+    const result = await HttpClient.post<string | number>('/community/post-comment-reply', token,
+      new CommentPayload(commentId, content), apiEnvironment);
+    return result.data === null ? '' : `${result.data}`;
   }
 
   static async deleteComment(token: string, commentId: string,
@@ -297,10 +355,11 @@ export class CommunityApi {
   }
 
   private static communityIdOf(prepare: PreparePostResponse): string {
-    if (prepare.communityId.length > 0) {
-      return prepare.communityId;
+    const communityId = CommunityApi.safeText(prepare.communityId);
+    if (communityId.length > 0) {
+      return communityId;
     }
-    return prepare.id;
+    return CommunityApi.safeText(prepare.id);
   }
 
   static async publishText(token: string, title: string, content: string, type: string,
@@ -324,7 +383,7 @@ export class CommunityApi {
     if (postId.length === 0) {
       throw new Error('后端未返回待发布动态 id');
     }
-    const targets = prepare.communityImageList;
+    const targets = prepare.communityImageList === null ? [] : prepare.communityImageList;
     if (targets.length < images.length) {
       throw new Error('上传凭证数量不足，请稍后重试');
     }

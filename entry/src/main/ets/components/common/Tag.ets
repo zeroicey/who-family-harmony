@@ -12,6 +12,7 @@ export struct Tag {
   @Prop tagRadius: number = AppRadius.xs;
   @Prop tagPaddingH: number = 6;
   @Prop tagPaddingV: number = 2;
+  @Prop centerText: boolean = false;
 
   build() {
     Text(this.text)
@@ -20,6 +21,7 @@ export struct Tag {
       .backgroundColor(this.bgColor)
       .borderRadius(this.tagRadius)
       .padding({ left: this.tagPaddingH, right: this.tagPaddingH, top: this.tagPaddingV, bottom: this.tagPaddingV })
+      .textAlign(this.centerText ? TextAlign.Center : TextAlign.Start)
       .maxLines(1)
   }
 }
