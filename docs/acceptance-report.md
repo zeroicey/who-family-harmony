@@ -659,3 +659,67 @@ D-P2-02 已关闭：社区冷启动翻到末页后底部文案即时变为“没
 **通过：Blocker 0 / Major 0 / Minor 4。**
 
 P2.5–P2.9 五个页面的核心链路均可进入、可返回、可滚动，真实招聘与知识数据正常展示，收藏/点赞测试后已恢复，未产生招聘投递等生产副作用。分类栏、助手预设问题配色、知识作者头像、知识点赞持久化四项为已登记的 Minor 偏差，其中分类栏与点赞持久化更接近任务清单的主动增强而非阻断缺陷，建议负责人确认后转为允许偏差。AI 真实逐字输出与知识 AI 解读受无效 DashScope key 限制，招聘投递、后端分页与部分异常态按明确红线或数据条件标为 NOT TESTED；这些均不构成本轮代码缺陷。
+
+---
+
+## 页面验收复验（P2.5–P2.9，ad84970）
+
+**复验范围**：仅复验 P2B-01–P2B-04 四项 Minor 修复及其回归，不重新展开 P2.5–P2.9 全量验收。
+**冻结点**：`ad84970`（`git rev-parse HEAD` 一致），复验开始时 `git status --short` 为空，分支 `feat/harmony-parity`。
+**环境**：HarmonyOS 模拟器 `127.0.0.1:5555`（1320×2856）。`./scripts/preflight.sh` 通过：`BUILD SUCCESSFUL`；CodeLinter `Errors: 0 / Warns: 19`（均为既有性能建议，较文档基线 14 条多 5 条，无 error，不构成验收失败）。
+**参考实现**：`../who_family_wechat`（只读）。
+
+### P2B-01 招聘分类栏 —— PASS
+
+- 代码：`entry/src/main/ets/pages/JobList.ets:522` 已移除 `this.CategoryTabs()` 调用，仅保留注释说明；`build()` 为 `PageHeader` → `Refresh/Scroll` → 岗位列表，分类栏组件定义（`:247`）不再被引用。
+- 参考：`../who_family_wechat/pages/recruit/index.vue:3-4` 的 `CategoryTabs` 处于注释状态，页面只渲染招聘列表。
+- 运行：招聘页首屏只有标题栏与岗位卡，无分类/筛选栏；列表滚动正常。见 [`accept-p2b-fix-joblist.png`](acceptance/screenshots/accept-p2b-fix-joblist.png)。
+- 回归：点击岗位可进入详情，职位描述/任职要求/底部收藏与投递状态正常。见 [`accept-p2b-fix-jobdetail.png`](acceptance/screenshots/accept-p2b-fix-jobdetail.png)。
+
+### P2B-02 助手预设问题渐变 —— PASS
+
+- 代码：`entry/src/main/ets/pages/Helper.ets:359` 为每个问题传入索引，`:385` 应用 `.linearGradient(this.presetGradient(index))`，`:404-421` 按 `index % 6` 返回参考的 6 组 135° 渐变色；摘要与箭头颜色同步改为参考的 `#666666`。
+- 参考：`../who_family_wechat/components/PresetQuestions.vue` 的卡片渐变依次为紫 `#e8d5ff→#d4b8ff`、粉 `#ffd6e8→#ffc2e2`、蓝 `#d4ecff→#b8ddff`、绿 `#d4ffe8→#b8ffd4`、橙 `#ffe8d4→#ffd4b8`、黄 `#fff5d4→#ffeab8`。当前固定 6 条问题，参考 `nth-child` 级联的最终颜色与 `index % 6` 一一对应。
+- 运行：2×3 预设问题卡按紫/粉/蓝/绿/橙/黄顺序显示，渐变与文字可读，点击可发送。见 [`accept-p2b-fix-helper-presets.png`](acceptance/screenshots/accept-p2b-fix-helper-presets.png)。
+- 回归：发送后错误气泡、原文保留、重试入口正常；清空会话后恢复欢迎语与 6 张预设卡。见 [`accept-p2b-fix-helper-error.png`](acceptance/screenshots/accept-p2b-fix-helper-error.png)、[`accept-p2b-fix-helper-restored.png`](acceptance/screenshots/accept-p2b-fix-helper-restored.png)。
+
+### P2B-03 知识作者 Dicebear 头像 —— PASS
+
+- 代码：`entry/src/main/ets/pages/Knowledge.ets:30` 与 `KnowledgeArticle.ets:70` 统一生成 `https://api.dicebear.com/7.x/pixel-art/png?seed=<encodeURIComponent(author)>`；列表 `Knowledge.ets:141`、详情 `KnowledgeArticle.ets:180` 均改用 `NetImage`（ArkUI `Image`）并做圆形裁剪。
+- 参考：`../who_family_wechat/utils/randomData.js:1-3` 使用 Dicebear 7.x `pixel-art` + 作者名 seed；`knowledge/index.vue` 与 `knowledge/article.vue` 均加载该头像。本实现同 provider、同风格、同 seed，返回格式为 PNG（本轮任务要求，ArkUI `Image` 可直接加载），视觉等价。
+- 运行：列表全部卡片与详情页作者头像均为 Dicebear 像素头像，无首字色块、无破图。见 [`accept-p2b-fix-knowledge-list-avatars.png`](acceptance/screenshots/accept-p2b-fix-knowledge-list-avatars.png)、[`accept-p2b-fix-knowledge-article.png`](acceptance/screenshots/accept-p2b-fix-knowledge-article.png)。
+- 失败占位：`components/common/NetImage.ets` 在 URL 为空或 `onError` 时置 `loadFailed` 并渲染灰底“图”占位，列表/详情外层 `Stack` 另有 `clip(true)`；本轮未实机断网触发失败态，按代码路径确认。
+
+### P2B-04 知识点赞仅本地切换 —— PASS
+
+- 代码：`KnowledgeArticle.ets:46` 进入详情固定 `isLiked = false`；`:84-86` 计数只返回 `article.likes`；`:88-91` `toggleLike()` 仅切换 `isLiked` + Toast，无 `CacheStore`/`AppStorage` 写入。全仓检索 `knowledgeLikedIds` / `knowledgeLikedDelta` 已无引用；列表 key 不再依赖点赞状态。
+- 参考：`../who_family_wechat/pages/knowledge/article.vue:147-153` 仅切换 `isLiked` 并 Toast，计数始终为 `article.likes`。
+- 运行：详情计数 `342` → 点击后红心 + “收藏成功” Toast，计数仍 `342`；返回列表仍 `342`；强制结束并冷启动后重新进入，恢复白心且计数仍 `342`。见 [`accept-p2b-fix-knowledge-liked.png`](acceptance/screenshots/accept-p2b-fix-knowledge-liked.png)、[`accept-p2b-fix-knowledge-list-after-like.png`](acceptance/screenshots/accept-p2b-fix-knowledge-list-after-like.png)、[`accept-p2b-fix-knowledge-relaunch.png`](acceptance/screenshots/accept-p2b-fix-knowledge-relaunch.png)、[`accept-p2b-fix-knowledge-liked-cleared.png`](acceptance/screenshots/accept-p2b-fix-knowledge-liked-cleared.png)。
+
+### 回归检查
+
+| 项目 | 结果 | 证据 |
+| --- | --- | --- |
+| 招聘列表/详情 | PASS | 列表无分类栏、岗位卡与滚动正常；详情字段、底部操作正常。见 [`accept-p2b-fix-joblist.png`](acceptance/screenshots/accept-p2b-fix-joblist.png)、[`accept-p2b-fix-jobdetail.png`](acceptance/screenshots/accept-p2b-fix-jobdetail.png) |
+| 助手错误态 | PASS | 无效 DashScope key 下错误气泡、重试、原文保留正常；清空后恢复欢迎态。见 [`accept-p2b-fix-helper-error.png`](acceptance/screenshots/accept-p2b-fix-helper-error.png) |
+| 知识分类 | PASS | 切换到“算法”分类后列表与选中态正确，作者头像正常。见 [`accept-p2b-fix-knowledge-category.png`](acceptance/screenshots/accept-p2b-fix-knowledge-category.png) |
+| 知识正文/代码块 | PASS | 标题、引用、列表、代码块（语言标签/等宽/灰底）与后续段落渲染正常。见 [`accept-p2b-fix-knowledge-codeblock.png`](acceptance/screenshots/accept-p2b-fix-knowledge-codeblock.png) |
+
+### 范围外观察（不计缺陷）
+
+- `P2B-02` 参考卡片另有阴影、右上角径向装饰与右下角半透明圆形箭头底纹，当前实现仍是纯渐变 + “›”文本；本轮 Minor 仅要求补渐变，沿用上轮视觉结论，建议后续统一打磨。
+- 参考预设问题使用 `nth-child` 级联，理论上第 8 条会命中 `4n` 绿色；当前问题数固定 6 条，`index % 6` 与参考完全一致，暂无运行影响。
+- `k-1` 详情标题为“Vue3 响应式原理”，正文仍为动态规划占位内容；上一轮已验证同样现象，属 `AGENTS.md` 第 7.8 条登记的内容迁移遗留，不是本轮回归。
+
+### 数据清理
+
+- 知识点赞：始终 `342`，未落盘；冷启动后为未点赞。
+- 助手会话：测试消息与错误气泡已清空，恢复欢迎语与预设问题。
+- 招聘：未发起投递；收藏状态保持测试前原样（已收藏）。
+- 未创建、修改或删除任何生产动态、评论或回复。
+
+### 结论
+
+**通过：Blocker 0 / Major 0 / Minor 0（本轮范围）。**
+
+P2B-01–P2B-04 四项 Minor 均已关闭，招聘、助手、知识三条回归链路正常。构建通过、CodeLinter 0 error；无新增 Functional/Behavioral 偏差。
