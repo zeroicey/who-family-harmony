@@ -1,5 +1,9 @@
+import { common } from '@kit.AbilityKit';
+import { router } from '@kit.ArkUI';
+import { CheckApi } from '../api/CheckApi';
 import { PrimaryButton } from '../components/common/PrimaryButton';
 import { PickedFile, UploadService } from '../services/UploadService';
+import { AuthStore } from '../stores/AuthStore';
 import { LogUtil } from '../utils/LogUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
@@ -7,11 +11,13 @@ import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeFeedback {
+  private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State activeType: string = '功能建议';
   @State content: string = '';
   @State contact: string = '';
   @State images: PickedFile[] = [];
   @State previewUri: string = '';
+  @State submitting: boolean = false;
 
   async pickImages(): Promise<void> {
     const remain = 3 - this.images.length;
@@ -21,16 +27,25 @@ struct MeFeedback {
     }
     try {
       const picked = await UploadService.pickImages(remain);
+      const token = await AuthStore.getToken(this.context);
+      const env = await AuthStore.getApiEnvironment(this.context);
       const accepted: PickedFile[] = [];
-      picked.forEach((file: PickedFile) => {
+      for (let index = 0; index < picked.length && accepted.length < remain; index++) {
+        const file: PickedFile = picked[index];
         const reason = UploadService.checkImage(file);
         if (reason.length > 0) {
           ToastUtil.show(reason);
-        } else {
-          accepted.push(file);
+          continue;
         }
-      });
-      this.images = this.images.concat(accepted.slice(0, remain));
+        // 与小程序 image check 一致：选图后先过 /check/img，未通过不入列表。
+        const check = await CheckApi.checkImg(token, file.base64(), file.mimeType, env);
+        if (!check.passed) {
+          ToastUtil.show(check.message);
+          continue;
+        }
+        accepted.push(file);
+      }
+      this.images = this.images.concat(accepted);
     } catch (err) {
       LogUtil.warn('feedback', `pick images failed ${(err as Error).message}`);
       ToastUtil.show('选择图片失败，请重试');
@@ -56,9 +71,20 @@ struct MeFeedback {
       ToastUtil.show('反馈内容不能为空哦');
       return;
     }
-    ToastUtil.show('感谢您的反馈！');
-    this.content = '';
-    this.contact = '';
+    if (this.submitting) {
+      return;
+    }
+    // 参考实现为本地模拟：1.5s 提交中 → 成功提示 2s → 返回上一页。
+    this.submitting = true;
+    setTimeout(() => {
+      this.submitting = false;
+      ToastUtil.show('感谢您的反馈！');
+      setTimeout(() => {
+        if (Number(router.getLength()) > 1) {
+          router.back();
+        }
+      }, 2000);
+    }, 1500);
   }
 
   @Builder
@@ -79,10 +105,16 @@ struct MeFeedback {
   @Builder
   Label(title: string, required: boolean = false) {
     Row() {
-      Text(required ? `${title} *` : title)
+      Text(title)
         .fontSize(15)
         .fontWeight(FontWeight.Medium)
-        .fontColor(required ? '#333333' : '#333333')
+        .fontColor('#333333')
+      if (required) {
+        Text('*')
+          .fontSize(15)
+          .fontColor('#FA3534')
+          .margin({ left: 2 })
+      }
     }
     .width('100%')
     .margin({ bottom: 10 })
@@ -111,6 +143,7 @@ struct MeFeedback {
           .width('100%')
           .height(160)
           .fontSize(14)
+          .maxLength(500)
           .backgroundColor('#F8F9FA')
           .borderRadius(10)
           .onChange((value: string) => {
@@ -246,22 +279,50 @@ struct MeFeedback {
         PageHeader({ title: '反馈' })
         Scroll() {
         Column() {
-          Text('倾听您的声音')
-            .fontSize(26)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#333333')
+          Stack({ alignContent: Alignment.TopStart }) {
+            Column()
+              .width(150)
+              .height(150)
+              .borderRadius(75)
+              .backgroundColor('#14007AFF')
+              .position({ x: 12, y: -30 })
+            Column()
+              .width(100)
+              .height(100)
+              .borderRadius(50)
+              .backgroundColor('#14007AFF')
+              .position({ x: 150, y: 40 })
+            Column()
+              .width(75)
+              .height(75)
+              .borderRadius(38)
+              .backgroundColor('#14007AFF')
+              .position({ x: 280, y: -10 })
+            Column() {
+              Text('倾听您的声音')
+                .fontSize(26)
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#333333')
+                .width('100%')
+              Text('您的每一个建议，都是我们成长的动力')
+                .fontSize(14)
+                .fontColor('#666666')
+                .width('100%')
+                .margin({ top: 8 })
+            }
+            .alignItems(HorizontalAlign.Start)
             .width('100%')
-          Text('您的每一个建议，都是我们成长的动力')
-            .fontSize(14)
-            .fontColor('#666666')
-            .width('100%')
-            .margin({ top: 8, bottom: 24 })
+          }
+          .width('100%')
+          .height(90)
+          .clip(true)
+          .margin({ bottom: 20 })
           this.FormCard()
           this.FaqCard()
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
-        .padding({ left: 15, right: 15, top: 36, bottom: 110 })
+        .padding({ left: 15, right: 15, top: 20, bottom: 110 })
       }
       .layoutWeight(1)
 
@@ -279,6 +340,25 @@ struct MeFeedback {
       .width('100%')
       .height('100%')
       .backgroundColor('#F8F9FA')
+
+      if (this.submitting) {
+        Column() {
+          LoadingProgress()
+            .width(46)
+            .height(46)
+            .color('#FFFFFF')
+          Text('正在提交...')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .margin({ top: 10 })
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(120)
+        .height(120)
+        .backgroundColor('#B3000000')
+        .borderRadius(12)
+        .zIndex(25)
+      }
 
       if (this.previewUri.length > 0) {
         Column() {

@@ -48,6 +48,10 @@ class StoragePayload {
   }
 }
 
+class StorageValueResponse {
+  value: string = '';
+}
+
 export class UserApi {
   private static safeText(value: string | number | boolean | null): string {
     return value ? `${value}` : '';
@@ -143,10 +147,12 @@ export class UserApi {
   }
 
   static async loadAddresses(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<AddressItem[]> {
-    const result = await HttpClient.post<string>('/storage/getItem', token, new StoragePayload('addresses'), apiEnvironment);
-    if (result.data === null || result.data.length === 0) {
+    // 后端返回 { value: "[...]" }，与小程序 remoteStorage 的 getRemoteStorageSync 一致。
+    const result = await HttpClient.post<StorageValueResponse>('/storage/getItem', token,
+      new StoragePayload('addresses'), apiEnvironment);
+    if (result.data === null || result.data.value.length === 0) {
       return [];
     }
-    return JSON.parse(result.data) as AddressItem[];
+    return JSON.parse(result.data.value) as AddressItem[];
   }
 }

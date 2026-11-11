@@ -4,41 +4,72 @@ import { AddressItem } from '../models/MiniProgramModels';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
 import { UserApi } from '../api/UserApi';
-import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
 import { PageHeader } from '../components/common/PageHeader';
+
+class AddressParams {
+  id: number | string = 0;
+}
+
 @Entry
 @Component
 struct MeAddressUpdate {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
-  @State item: AddressItem = MockData.addresses()[0];
+  @State item: AddressItem = new AddressItem();
+  @State loaded: boolean = false;
 
   aboutToAppear(): void {
     this.load();
   }
 
   async load(): Promise<void> {
-    this.item = await CacheStore.getJson<AddressItem>(this.context, 'editingAddress', MockData.addresses()[0]);
+    const params = router.getParams() as AddressParams;
+    const wanted = params !== undefined && params !== null && params.id !== undefined ? Number(params.id) : 0;
+    const targetId = Number.isFinite(wanted) ? wanted : 0;
+    const addresses = await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', []);
+    if (targetId > 0) {
+      const found = addresses.find((addr: AddressItem) => addr.id === targetId);
+      if (found !== undefined) {
+        this.item = found;
+        this.loaded = true;
+        return;
+      }
+    }
+    this.item = await CacheStore.getJson<AddressItem>(this.context, 'editingAddress', new AddressItem());
+    this.loaded = true;
   }
 
   async save(): Promise<void> {
-    if (this.item.name.trim().length === 0 || this.item.phone.trim().length === 0 || this.item.detail.trim().length === 0) {
+    if (this.item.name.trim().length === 0 || this.item.phone.trim().length === 0 ||
+      this.item.fullAddress.trim().length === 0) {
       ToastUtil.show('请填写完整的地址信息');
       return;
     }
-    const addresses = await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', MockData.addresses());
+    const addresses = await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', []);
     const next: AddressItem[] = [];
+    // 与小程序 address/store 一致：设为默认时取消其它默认；
+    // 原默认地址被取消且已无默认时，首条地址回补为默认。
+    let wasDefault = false;
     addresses.forEach((addr: AddressItem) => {
+      if (addr.id === this.item.id) {
+        wasDefault = addr.isDefault;
+      }
+    });
+    addresses.forEach((addr: AddressItem) => {
+      if (this.item.isDefault) {
+        addr.isDefault = false;
+      }
       if (addr.id === this.item.id) {
         next.push(this.item);
       } else {
-        if (this.item.isDefault) {
-          addr.isDefault = false;
-        }
         next.push(addr);
       }
     });
+    if (wasDefault && !this.item.isDefault && next.length > 0 &&
+      next.every((addr: AddressItem) => !addr.isDefault)) {
+      next[0].isDefault = true;
+    }
     await CacheStore.setJson<AddressItem[]>(this.context, 'addresses', next);
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
@@ -46,7 +77,6 @@ struct MeAddressUpdate {
       await UserApi.saveAddresses(token, next, env);
     } catch (_) {
     }
-    ToastUtil.show('保存成功');
     router.back();
   }
 
@@ -61,10 +91,11 @@ struct MeAddressUpdate {
         .layoutWeight(1)
         .height(44)
         .fontSize(15)
+        .textAlign(TextAlign.End)
         .backgroundColor('#FFFFFF')
         .onChange((text: string) => {
-          if (field === 'area') {
-            this.item.area = text;
+          if (field === 'alias') {
+            this.item.alias = text;
           } else if (field === 'name') {
             this.item.name = text;
           } else if (field === 'phone') {
@@ -81,21 +112,21 @@ struct MeAddressUpdate {
 
   @Builder
   DetailInput() {
-    Column() {
+    Row() {
       Text('详细地址')
         .fontSize(15)
         .fontColor('#333333')
-        .width('100%')
-      TextArea({ placeholder: '请输入详细地址，如街道、楼牌号等', text: this.item.detail })
+        .width(100)
+      TextArea({ placeholder: '请输入详细地址，如街道、楼牌号等', text: this.item.fullAddress })
+        .layoutWeight(1)
         .height(96)
         .fontSize(15)
         .backgroundColor('#FFFFFF')
-        .margin({ top: 8 })
         .onChange((text: string) => {
-          this.item.detail = text;
+          this.item.fullAddress = text;
         })
     }
-    .alignItems(HorizontalAlign.Start)
+    .alignItems(VerticalAlign.Top)
     .width('100%')
     .padding({ left: 15, right: 15, top: 12, bottom: 12 })
     .backgroundColor('#FFFFFF')
@@ -110,18 +141,14 @@ struct MeAddressUpdate {
         .fontSize(15)
         .fontColor('#333333')
         .layoutWeight(1)
-      Text(this.item.isDefault ? '已开启' : '关闭')
-        .fontSize(13)
-        .fontColor(this.item.isDefault ? '#FFFFFF' : '#666666')
-        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-        .backgroundColor(this.item.isDefault ? '#007AFF' : '#F0F0F0')
-        .borderRadius(14)
-        .onClick(() => {
-          this.item.isDefault = !this.item.isDefault;
+      Toggle({ type: ToggleType.Switch, isOn: this.item.isDefault })
+        .selectedColor('#007AFF')
+        .onChange((isOn: boolean) => {
+          this.item.isDefault = isOn;
         })
     }
     .width('100%')
-    .padding({ left: 15, right: 15, top: 13, bottom: 13 })
+    .padding({ left: 15, right: 15, top: 8, bottom: 8 })
     .backgroundColor('#FFFFFF')
     .borderRadius(8)
   }
@@ -131,28 +158,32 @@ struct MeAddressUpdate {
       PageHeader({ title: '修改地址' })
       Scroll() {
         Column() {
-          this.FormInput('地址别名', '如：家、学校', this.item.area, 'area')
-          this.FormInput('收货人姓名', '请填写收货人姓名', this.item.name, 'name')
-          this.FormInput('手机号码', '请填写收货人手机号', this.item.phone, 'phone')
-          this.DetailInput()
-          this.DefaultSwitch()
+          if (this.loaded) {
+            this.FormInput('地址别名', '如：家、学校', this.item.alias, 'alias')
+            this.FormInput('收货人姓名', '请填写收货人姓名', this.item.name, 'name')
+            this.FormInput('手机号码', '请填写收货人手机号', this.item.phone, 'phone')
+            this.DetailInput()
+            this.DefaultSwitch()
+          }
         }
         .width('100%')
         .padding({ left: 15, right: 15, top: 15, bottom: 100 })
       }
       .layoutWeight(1)
-      Button('保存')
-        .width('90%')
-        .height(46)
-        .fontSize(16)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(23)
-        .margin({ bottom: 22 })
-        .shadow({ radius: 8, color: '#4D007AFF', offsetX: 0, offsetY: 4 })
-        .onClick(() => {
-          this.save();
-        })
+      if (this.loaded) {
+        Button('保存')
+          .width('90%')
+          .height(46)
+          .fontSize(16)
+          .fontColor('#FFFFFF')
+          .backgroundColor('#007AFF')
+          .borderRadius(23)
+          .margin({ bottom: 22 })
+          .shadow({ radius: 8, color: '#4D007AFF', offsetX: 0, offsetY: 4 })
+          .onClick(() => {
+            this.save();
+          })
+      }
     }
     .width('100%')
     .height('100%')

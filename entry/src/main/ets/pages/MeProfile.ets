@@ -1,5 +1,7 @@
 import { common } from '@kit.AbilityKit';
+import { router } from '@kit.ArkUI';
 import { AppIcon } from '../components/AppIcon';
+import { LoadingView } from '../components/common/LoadingView';
 import { NetImage } from '../components/common/NetImage';
 import { PrimaryButton } from '../components/common/PrimaryButton';
 import { UserProfile } from '../models/UserProfile';
@@ -17,6 +19,7 @@ struct MeProfile {
   @State user: UserProfile = new UserProfile();
   @State saving: boolean = false;
   @State uploadingAvatar: boolean = false;
+  @State loaded: boolean = false;
 
   aboutToAppear(): void {
     this.load();
@@ -24,6 +27,12 @@ struct MeProfile {
 
   async load(): Promise<void> {
     this.user = await AuthStore.getUser(this.context);
+    // 小程序：年级不在 大一–大四 时回落到「大一」。
+    const grades: string[] = ['大一', '大二', '大三', '大四'];
+    if (!grades.includes(this.user.grade)) {
+      this.user.grade = '大一';
+    }
+    this.loaded = true;
   }
 
   private avatarText(): string {
@@ -69,7 +78,8 @@ struct MeProfile {
       await AuthStore.saveUser(this.context, this.user);
       // 全局头像：Mine 通过 @StorageLink 即时刷新，无需重新进页面。
       AppStorage.setOrCreate<string>('avatarUrl', this.user.avatarUrl);
-      ToastUtil.show('头像上传成功');
+      AppStorage.setOrCreate<string>('userRefreshAt', `${Date.now()}`);
+      ToastUtil.show('头像更新成功');
     } catch (err) {
       LogUtil.warn('profile', `avatar upload failed ${(err as Error).message}`);
       ToastUtil.show(`头像上传失败：${(err as Error).message}`);
@@ -98,10 +108,13 @@ struct MeProfile {
       // UserApi.updateUserInfo 内部先做 /check/text，未通过或 401 会抛出。
       await UserApi.updateUserInfo(token, this.user, env);
       await AuthStore.login(this.context, this.user, token, await AuthStore.getBackendMode(this.context), env);
+      AppStorage.setOrCreate<string>('userRefreshAt', `${Date.now()}`);
       ToastUtil.show('保存成功');
+      // 小程序保存后切回「我的」页；鸿蒙侧等价于返回上一页。
+      router.back();
     } catch (err) {
       LogUtil.warn('profile', `save failed ${(err as Error).message}`);
-      ToastUtil.show(`保存失败：${(err as Error).message}`);
+      ToastUtil.show('保存失败，请稍后再试');
     } finally {
       this.saving = false;
     }
@@ -156,7 +169,7 @@ struct MeProfile {
   }
 
   @Builder
-  FormInput(label: string, placeholder: string, value: string, field: string, icon: string) {
+  FormInput(label: string, placeholder: string, value: string, field: string, icon: string, limit: number = 200) {
     Row() {
       AppIcon({ name: icon, iconSize: 22 })
         .margin({ right: 8 })
@@ -168,6 +181,8 @@ struct MeProfile {
         .layoutWeight(1)
         .height(44)
         .fontSize(15)
+        .maxLength(limit)
+        .textAlign(TextAlign.End)
         .backgroundColor('#FFFFFF')
         .onChange((text: string) => {
           if (field === 'nickname') {
@@ -177,8 +192,6 @@ struct MeProfile {
             this.user.school = text;
           } else if (field === 'major') {
             this.user.major = text;
-          } else if (field === 'studentId') {
-            this.user.studentId = text;
           }
         })
       Text('›')
@@ -190,22 +203,10 @@ struct MeProfile {
     .border({ width: { bottom: 1 }, color: '#F0F0F0' })
   }
 
-  @Builder
-  OptionButton(label: string, current: string, group: string) {
-    Text(label)
-      .fontSize(13)
-      .fontColor(current === label ? '#FFFFFF' : '#555555')
-      .backgroundColor(current === label ? '#007AFF' : '#F0F0F0')
-      .borderRadius(15)
-      .padding({ left: 14, right: 14, top: 7, bottom: 7 })
-      .margin({ right: 8 })
-      .onClick(() => {
-        if (group === 'gender') {
-          this.setGender(label);
-        } else {
-          this.setGrade(label);
-        }
-      })
+  private optionIndex(current: string, group: string): number {
+    const options: string[] = group === 'gender' ? ['男', '女'] : ['大一', '大二', '大三', '大四'];
+    const index = options.indexOf(current);
+    return index < 0 ? 0 : index;
   }
 
   @Builder
@@ -217,28 +218,34 @@ struct MeProfile {
         .fontSize(15)
         .fontColor('#333333')
         .width(78)
-      Flex({ wrap: FlexWrap.Wrap }) {
-        if (group === 'gender') {
-          this.OptionButton('男', current, group)
-          this.OptionButton('女', current, group)
-        } else {
-          this.OptionButton('大一', current, group)
-          this.OptionButton('大二', current, group)
-          this.OptionButton('大三', current, group)
-          this.OptionButton('大四', current, group)
-        }
-      }
-      .layoutWeight(1)
+      Blank()
+      Select(group === 'gender' ? [{ value: '男' }, { value: '女' }] :
+        [{ value: '大一' }, { value: '大二' }, { value: '大三' }, { value: '大四' }])
+        .selected(this.optionIndex(current, group))
+        .value(current)
+        .font({ size: 15 })
+        .fontColor('#555555')
+        .optionFont({ size: 15 })
+        .selectedOptionFont({ size: 15 })
+        .backgroundColor('#00000000')
+        .onSelect((index: number, value: string) => {
+          if (group === 'gender') {
+            this.setGender(value);
+          } else {
+            this.setGrade(value);
+          }
+        })
+        .margin({ right: -6 })
     }
     .width('100%')
-    .padding({ top: 12, bottom: 12 })
+    .height(54)
     .border({ width: { bottom: 1 }, color: '#F0F0F0' })
   }
 
   @Builder
   FormGroupBasic() {
     Column() {
-      this.FormInput('昵称', '请输入昵称', this.user.nickname, 'nickname', 'profile_name')
+      this.FormInput('昵称', '请输入昵称', this.user.nickname, 'nickname', 'profile_name', 15)
       this.SelectRow('性别', this.user.gender, 'gender', 'profile_gender')
     }
     .width('100%')
@@ -254,7 +261,6 @@ struct MeProfile {
       this.FormInput('学校', '请输入学校名称', this.user.school, 'school', 'profile_school')
       this.FormInput('专业', '请输入专业名称', this.user.major, 'major', 'profile_major')
       this.SelectRow('年级', this.user.grade, 'grade', 'profile_grade')
-      this.FormInput('学号', '请输入学号', this.user.studentId, 'studentId', 'profile_phone')
     }
     .width('100%')
     .padding({ left: 16, right: 16 })
@@ -277,6 +283,7 @@ struct MeProfile {
           .layoutWeight(1)
           .height(92)
           .fontSize(15)
+          .maxLength(100)
           .backgroundColor('#FFFFFF')
           .onChange((value: string) => {
             this.user.bio = value;
@@ -302,27 +309,33 @@ struct MeProfile {
       PageHeader({ title: '个人资料' })
       Scroll() {
         Column() {
-          this.AvatarSection()
-          this.FormGroupBasic()
-          this.FormGroupSchool()
-          this.BioGroup()
+          if (!this.loaded) {
+            LoadingView({ text: '正在加载', minHeight: 240 })
+          } else {
+            this.AvatarSection()
+            this.FormGroupBasic()
+            this.FormGroupSchool()
+            this.BioGroup()
+          }
         }
         .width('100%')
         .padding({ left: 14, right: 14, top: 14, bottom: 96 })
       }
       .layoutWeight(1)
 
-      PrimaryButton({
-        text: '保存修改',
-        loading: this.saving,
-        buttonWidth: '92%',
-        buttonHeight: 46,
-        buttonRadius: 23,
-        onTap: () => {
-          this.save();
-        }
-      })
-        .margin({ bottom: 22 })
+      if (this.loaded) {
+        PrimaryButton({
+          text: '保存修改',
+          loading: this.saving,
+          buttonWidth: '92%',
+          buttonHeight: 46,
+          buttonRadius: 23,
+          onTap: () => {
+            this.save();
+          }
+        })
+          .margin({ bottom: 22 })
+      }
     }
     .width('100%')
     .height('100%')

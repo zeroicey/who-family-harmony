@@ -399,6 +399,12 @@ export class CommunityApi {
     await CommunityApi.finalizePost(token, postId, apiEnvironment);
   }
 
+  /** 删除自己的动态（小程序 api/user.js deletePost）。 */
+  static async deletePost(token: string, id: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    await HttpClient.delete<ApiEmptyResponse>('/community/post', token, new PostIdPayload(id), apiEnvironment);
+  }
+
   static async like(token: string, id: string, like: boolean, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
     await HttpClient.post<ApiEmptyResponse>('/community/like-post', token, new LikePostPayload(id, like), apiEnvironment);
   }

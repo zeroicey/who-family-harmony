@@ -22,16 +22,44 @@ struct MeOrder {
     this.load();
   }
 
+  private safeText(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === 0) {
+      return '';
+    }
+    return `${value}`;
+  }
+
+  /** 后端字段可能为 null，先归一化再进列表，避免渲染期读取 null。 */
+  private normalizeOrder(raw: PrintOrder): PrintOrder {
+    const order = new PrintOrder(
+      this.safeText(raw.id),
+      this.safeText(raw.type).length > 0 ? this.safeText(raw.type) : '派送服务',
+      this.safeText(raw.address),
+      this.safeText(raw.name),
+      this.safeText(raw.phone),
+      Number(raw.count) > 0 ? Number(raw.count) : 1,
+      this.safeText(raw.fileName),
+      this.safeText(raw.remark),
+      this.safeText(raw.status).length > 0 ? this.safeText(raw.status) : '待处理',
+      this.safeText(raw.createdAt)
+    );
+    order.startOrderTime = this.safeText(raw.startOrderTime);
+    order.endOrderTime = this.safeText(raw.endOrderTime);
+    return order;
+  }
+
   async load(): Promise<void> {
     this.loading = true;
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
       const remote = await PrintApi.selfOrders(token, env);
-      this.orders = remote.length > 0 ? remote : MockData.printOrders();
+      this.orders = remote.length > 0 ? remote.map((raw: PrintOrder) => this.normalizeOrder(raw)) :
+        MockData.printOrders();
       await CacheStore.setJson<PrintOrder[]>(this.context, 'printOrders', this.orders);
     } catch (_) {
-      this.orders = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', MockData.printOrders());
+      const cached = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', MockData.printOrders());
+      this.orders = cached.map((raw: PrintOrder) => this.normalizeOrder(raw));
     } finally {
       this.loading = false;
     }
@@ -49,33 +77,37 @@ struct MeOrder {
   }
 
   private statusColor(status: string): string {
-    if (status === '已完成') {
-      return '#52C41A';
-    }
     if (status === '处理中') {
-      return '#1890FF';
+      return '#1976D2';
+    }
+    if (status === '已完成') {
+      return '#388E3C';
     }
     if (status === '已取消') {
-      return '#999999';
+      return '#D32F2F';
     }
-    return '#FA8C16';
+    return '#F57C00';
   }
 
   private statusBg(status: string): string {
-    if (status === '已完成') {
-      return '#F6FFED';
-    }
     if (status === '处理中') {
-      return '#E6F7FF';
+      return '#E3F2FD';
+    }
+    if (status === '已完成') {
+      return '#E8F5E8';
     }
     if (status === '已取消') {
-      return '#F5F5F5';
+      return '#FCE4EC';
     }
-    return '#FFF2E8';
+    return '#FFF3E0';
   }
 
+  /** 小程序订单头部展示下单时间（startOrderTime）。 */
   private createdText(order: PrintOrder): string {
-    return order.createdAt.length > 0 ? order.createdAt : '刚刚';
+    if (order.startOrderTime.length > 0) {
+      return order.startOrderTime;
+    }
+    return '刚刚';
   }
 
   gotoPrint(): void {
@@ -129,13 +161,14 @@ struct MeOrder {
     if (value.length > 0) {
       Row() {
         Text(label)
-          .fontSize(13)
-          .fontColor('#999999')
-          .width(76)
+          .fontSize(14)
+          .fontColor('#666666')
+          .width(80)
         Text(value)
-          .fontSize(13)
+          .fontSize(14)
           .fontColor('#333333')
           .layoutWeight(1)
+          .textAlign(TextAlign.End)
       }
       .width('100%')
       .margin({ top: 6 })
@@ -191,22 +224,24 @@ struct MeOrder {
         .margin({ left: 10 })
         Text(`${order.count}份`)
           .fontSize(13)
-          .fontColor('#666666')
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#007AFF')
       }
       .width('100%')
       .padding({ top: 14, bottom: 10 })
+      .border({ width: { bottom: 1 }, color: '#F0F0F0' })
 
       Column() {
         this.InfoRow('服务方式:', order.type)
         this.InfoRow('联系人:', order.name)
         this.InfoRow('联系电话:', order.phone)
-        this.InfoRow('配送地址:', order.address)
+        this.InfoRow('配送地址:', order.type === '派送服务' ? order.address : '')
         this.InfoRow('备注:', order.remark)
+        this.InfoRow('创建时间:', order.startOrderTime)
+        this.InfoRow('完成时间:', order.endOrderTime)
       }
       .width('100%')
-      .padding(12)
-      .backgroundColor('#FAFAFA')
-      .borderRadius(8)
+      .padding({ top: 10 })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -234,6 +269,7 @@ struct MeOrder {
             EmptyState({
               title: '暂无订单记录',
               description: '您还没有任何打印订单',
+              iconText: '☰',
               actionText: '去打印',
               cardBg: '#FFFFFF',
               onAction: () => {

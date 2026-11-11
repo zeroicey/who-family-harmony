@@ -3,8 +3,8 @@ import { AddressItem, PrintOrder, PrintPrice } from '../models/MiniProgramModels
 export class ServiceMock {
   static addresses(): AddressItem[] {
     return [
-      new AddressItem('addr-1', '互成一家用户', '13800000000', '广东东软学院', 'SOVO 公寓 1 栋', true),
-      new AddressItem('addr-2', '测试同学', '13900000000', '广东东软学院', '教学楼 A 区门口', false)
+      new AddressItem(1, '互成一家用户', '13800000000', '广东东软学院', 'SOVO 公寓 1 栋', true),
+      new AddressItem(2, '测试同学', '13900000000', '广东东软学院', '教学楼 A 区门口', false)
     ];
   }
   static printPrices(): PrintPrice[] {

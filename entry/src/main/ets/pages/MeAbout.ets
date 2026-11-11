@@ -87,16 +87,12 @@ struct MeAbout {
       Scroll() {
       Column() {
         Row() {
-          Text('互')
-            .fontSize(32)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#4FACFE')
-            .textAlign(TextAlign.Center)
-            .width(70)
-            .height(70)
-            .borderRadius(35)
-            .backgroundColor('#FFFFFF')
+          Image($r('app.media.icon_logo'))
+            .width(60)
+            .height(60)
+            .borderRadius(30)
             .border({ width: 2, color: '#CCFFFFFF' })
+            .objectFit(ImageFit.Cover)
           Column() {
             Text('互成一家')
               .fontSize(24)
@@ -112,9 +108,12 @@ struct MeAbout {
           .margin({ left: 16 })
         }
         .width('100%')
-        .height(190)
+        .height(200)
         .padding({ left: 24, right: 24, top: 34 })
-        .backgroundColor('#A1C4FD')
+        .linearGradient({
+          angle: 135,
+          colors: [['#A1C4FD', 0.0], ['#C2E9FB', 1.0]]
+        })
 
         Column() {
           this.ContentCard('平台定位')
