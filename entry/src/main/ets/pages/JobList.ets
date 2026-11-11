@@ -519,7 +519,7 @@ export struct JobList {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
         PageHeader({ title: '招聘' })
-        this.CategoryTabs()
+        // 参考 pages/recruit/index.vue 中 CategoryTabs 被注释，页面只展示岗位列表。
         if (this.usedFallback) {
           this.FallbackBanner()
         }

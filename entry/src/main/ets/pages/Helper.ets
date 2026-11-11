@@ -356,7 +356,7 @@ export struct Helper {
       .margin({ bottom: 12 })
 
       Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
-        ForEach(this.questions, (question: PresetQuestion) => {
+        ForEach(this.questions, (question: PresetQuestion, index: number) => {
           Column() {
             Text(question.title)
               .fontSize(13)
@@ -367,13 +367,13 @@ export struct Helper {
             Row() {
               Text(this.previewText(question.content))
                 .fontSize(11)
-                .fontColor('#999999')
+                .fontColor('#666666')
                 .maxLines(2)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .layoutWeight(1)
               Text('›')
                 .fontSize(14)
-                .fontColor('#999999')
+                .fontColor('#666666')
                 .margin({ left: 4 })
             }
             .width('100%')
@@ -382,7 +382,7 @@ export struct Helper {
           .alignItems(HorizontalAlign.Start)
           .width('48.5%')
           .padding(10)
-          .backgroundColor('#FFFFFF')
+          .linearGradient(this.presetGradient(index))
           .borderRadius(10)
           .margin({ bottom: 8 })
           .onClick(() => {
@@ -398,6 +398,27 @@ export struct Helper {
 
   private previewText(content: string): string {
     return content.length > 30 ? `${content.substring(0, 30)}...` : content;
+  }
+
+  /** 与参考 PresetQuestions.vue 的 nth-child 渐变对齐（6 色循环）。 */
+  private presetGradient(index: number): LinearGradient {
+    const slot = index % 6;
+    if (slot === 0) {
+      return { angle: 135, colors: [['#e8d5ff', 0.0], ['#d4b8ff', 1.0]] };
+    }
+    if (slot === 1) {
+      return { angle: 135, colors: [['#ffd6e8', 0.0], ['#ffc2e2', 1.0]] };
+    }
+    if (slot === 2) {
+      return { angle: 135, colors: [['#d4ecff', 0.0], ['#b8ddff', 1.0]] };
+    }
+    if (slot === 3) {
+      return { angle: 135, colors: [['#d4ffe8', 0.0], ['#b8ffd4', 1.0]] };
+    }
+    if (slot === 4) {
+      return { angle: 135, colors: [['#ffe8d4', 0.0], ['#ffd4b8', 1.0]] };
+    }
+    return { angle: 135, colors: [['#fff5d4', 0.0], ['#ffeab8', 1.0]] };
   }
 
   @Builder

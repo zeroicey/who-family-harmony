@@ -2,10 +2,10 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { BackToTop } from '../components/common/BackToTop';
 import { EmptyState } from '../components/common/EmptyState';
+import { NetImage } from '../components/common/NetImage';
 import { KnowledgeArticle } from '../models/MiniProgramModels';
 import { ScrollToTop } from '../services/PagedList';
 import { CacheStore } from '../stores/CacheStore';
-import { LogUtil } from '../utils/LogUtil';
 import { MockData } from '../utils/MockData';
 
 @Entry
@@ -16,47 +16,7 @@ export struct Knowledge {
   @State activeTab: string = '前端';
   @State articles: KnowledgeArticle[] = MockData.knowledgeArticles();
   @State showBackToTop: boolean = false;
-  @StorageLink('knowledgeLikedDelta') @Watch('onLikedDelta') likedDelta: string = '';
   private scroller: Scroller = new Scroller();
-
-  aboutToAppear(): void {
-    this.loadLikedStates();
-  }
-
-  /** 启动时把已收藏文章的点赞数 +1，避免列表与详情不一致。 */
-  private async loadLikedStates(): Promise<void> {
-    const ids = await CacheStore.getJson<string[]>(this.context, 'knowledgeLikedIds', []);
-    const articles = MockData.knowledgeArticles();
-    articles.forEach((item: KnowledgeArticle) => {
-      if (ids.indexOf(item.id) >= 0) {
-        item.likes += 1;
-      }
-    });
-    this.articles = articles;
-  }
-
-  private onLikedDelta(): void {
-    if (this.likedDelta.length === 0) {
-      return;
-    }
-    const parts = this.likedDelta.split('|');
-    if (parts.length < 2) {
-      AppStorage.setOrCreate<string>('knowledgeLikedDelta', '');
-      return;
-    }
-    const id = parts[0];
-    const liked = parts[1] === '1';
-    LogUtil.info('knowledge', `liked delta id=${id} liked=${liked ? '1' : '0'}`);
-    const apply = (item: KnowledgeArticle): KnowledgeArticle => {
-      if (item.id !== id) {
-        return item;
-      }
-      item.likes += liked ? 1 : -1;
-      return item;
-    };
-    this.articles = this.articles.map(apply);
-    AppStorage.setOrCreate<string>('knowledgeLikedDelta', '');
-  }
 
   filteredArticles(): KnowledgeArticle[] {
     return this.articles.filter((item: KnowledgeArticle) => item.category === this.activeTab);
@@ -65,6 +25,10 @@ export struct Knowledge {
   async openArticle(item: KnowledgeArticle): Promise<void> {
     await CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${item.id}`, item);
     router.pushUrl({ url: 'pages/KnowledgeArticle', params: { id: item.id } });
+  }
+
+  private avatarUrl(author: string): string {
+    return `https://api.dicebear.com/7.x/pixel-art/png?seed=${encodeURIComponent(author)}`;
   }
 
   private levelColor(level: string): string {
@@ -173,15 +137,18 @@ export struct Knowledge {
       .width('100%')
 
       Row() {
-        Text(item.author.substring(0, 1))
-          .fontSize(12)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .width(24)
-          .height(24)
-          .textAlign(TextAlign.Center)
-          .backgroundColor('#2979ff')
-          .borderRadius(12)
+        Stack() {
+          NetImage({
+            imageUrl: this.avatarUrl(item.author),
+            imageHeight: 24,
+            imageRadius: 12,
+            fitMode: 'cover'
+          })
+        }
+        .width(24)
+        .height(24)
+        .borderRadius(12)
+        .clip(true)
         Text(item.author)
           .fontSize(12)
           .fontWeight(FontWeight.Medium)

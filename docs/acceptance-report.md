@@ -478,3 +478,184 @@ D-P2-01 已通过并关闭：发布页稳定显示后端四个有效分类，加
 **通过：Blocker 0 / Major 0 / Minor 0。**
 
 D-P2-02 已关闭：社区冷启动翻到末页后底部文案即时变为“没有更多数据了”，继续上拉保持稳定；下拉刷新后分页正确复位并可从第一页继续加载，末尾状态仍正确；我的动态末页表现一致。四 Tab、点赞、详情进入/返回回归均通过。AI 真实流式与图片上传仍受既有环境限制，不在本轮范围。
+
+## 页面验收（P2.5–P2.9，795d2ac）
+
+- 验收日期：2026-11-11–2026-11-12
+- 分支：`feat/harmony-parity`
+- 冻结点：`795d2acda874b754747268ab6f23c4ab2f242fee`
+- 冻结状态：开始前 `git status --short` 为空；验收期间未修改 `entry/`、构建配置、`docs/parity-plan.md` 或 `env.ets`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，API 24，分辨率 1320×2856；应用已安装并运行，无启动崩溃
+- 后端：生产 `https://api.hcyj.xyz`；演示 token 有效，招聘与知识真实数据可访问
+- 安装包：`entry-default-unsigned.hap`，SHA-256 `6825e1c03417a51478e88bce9122666b9fb3e3a3d6b28890323558ef523e6fac`
+- 参考实现：`../who_family_wechat`，HEAD `47896e31150215b31e751e1f04427f7a56b53f99`，工作区干净
+- 范围：仅 P2.5 招聘列表、P2.6 招聘详情、P2.7 助手、P2.8 知识列表、P2.9 知识详情；未验收 P2.10 及后续页面
+
+### 门槛与冻结
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| 冻结点 | PASS | `git rev-parse HEAD` 为 `795d2acda874b754747268ab6f23c4ab2f242fee` |
+| 工作区 | PASS | 开始前 `git status --short` 为空 |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Defects: 19; Errors: 0; Warns: 19; Suggestions: 0`，无 error |
+| 路由表 | PASS | `preflight` 检查 30 条注册路由，路由文件与注册表一致 |
+| Web 图片残留 | PASS | `preflight` 检查 Web 图片组件为 0；网络图使用 ArkUI `Image`/`NetImage` |
+| 仓库卫生 | PASS | `preflight` 未发现未跟踪密钥、签名或构建产物 |
+| 参考实现完整性 | PASS | `../who_family_wechat` HEAD 固定且工作区干净，未修改 |
+
+### 页面结果汇总
+
+| 页面 | 结果 | 缺陷/偏差 | 未测项 |
+| --- | --- | --- | --- |
+| P2.5 招聘列表 | **PASS（核心链路）** | P2B-01 | 后端分页、下拉刷新请求、加载/全量空/失败降级未取得可靠运行态证据 |
+| P2.6 招聘详情 | **PASS** | 无 | 投递行为按红线 NOT TESTED |
+| P2.7 助手 | **PASS（核心链路）** | P2B-02 | AI 真实逐字输出、富 Markdown 历史消息 NOT TESTED |
+| P2.8 知识列表 | **PASS** | P2B-03 | 无 |
+| P2.9 知识详情 | **PASS（核心链路）** | P2B-04 | AI 真实解读输出 NOT TESTED |
+
+### P2.5 招聘列表
+
+**结果：PASS（核心链路，登记 Minor 偏差 1）。** 截图：[`默认态`](acceptance/screenshots/accept-p2b-joblist-default.png)、[`分类空态`](acceptance/screenshots/accept-p2b-joblist-type-intern.png)、[`到底`](acceptance/screenshots/accept-p2b-joblist-bottom2.png)。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 分类栏与筛选 | PASS（偏差见 P2B-01） | 显示“所有 / 已收藏 / 实习招聘 / 志愿者招募 / 校招”等横向分类；逐项切换选中态正确；“实习招聘”无数据时显示“暂无相关岗位 / 换个分类看看吧”。见 [`accept-p2b-joblist-default.png`](acceptance/screenshots/accept-p2b-joblist-default.png)、[`accept-p2b-joblist-type-intern.png`](acceptance/screenshots/accept-p2b-joblist-type-intern.png) |
+| 真实接口与卡片 | PASS | `GET /hire/job-types`、`GET /hire/recommend-jobs` 均 HTTP 200；当前 4 个真实岗位，卡片含 logo、岗位名、单位、活动招募/热门/推荐标签、地点、描述、招募人数、已申请人数、截止日期与申请/已投递状态。字段与 `components/recruit/RecruitCard.vue` 对齐 |
+| 进入详情 | PASS | 点击岗位卡进入“招聘详情”，岗位标题与所选卡片一致，PageHeader 返回列表正常 |
+| 收藏状态同步 | PASS | 招聘详情初始为已收藏；取消收藏后返回列表状态已更新，再收藏恢复；最终恢复为原始“已收藏”，未留下测试状态。见 [`accept-p2b-jobdetail-uncollected.png`](acceptance/screenshots/accept-p2b-jobdetail-uncollected.png)、[`accept-p2b-jobdetail-restored.png`](acceptance/screenshots/accept-p2b-jobdetail-restored.png) |
+| 到底提示 | PASS | 全部 4 条岗位后显示“没有更多数据了”，继续上拉不再请求。见 [`accept-p2b-joblist-bottom2.png`](acceptance/screenshots/accept-p2b-joblist-bottom2.png) |
+| 回到顶部 | PASS | 列表滚动后浮动回顶按钮出现，点击后回到首卡顶部。见 [`accept-p2b-joblist-backtotop.png`](acceptance/screenshots/accept-p2b-joblist-backtotop.png) |
+| 加载/空/失败态 | 部分 NOT TESTED | 分类空态 PASS；冷启动加载态、全量空态、断网/无效 token 降级与“重试”横幅未取得可靠静态证据，仅做源码走查，不据此判 PASS |
+| 分页与下拉刷新 | NOT TESTED | 后端当前仅返回 4 条，不足以触发 `lastId` 下一页；下拉刷新指示器与刷新请求未截到可靠帧，未将 `refreshing/refresh-done` 截图作为通过证据 |
+| 视觉、滚动、返回与安全区 | PASS | PageHeader、状态栏、底部安全区正常；长描述不溢出，连续滚动无白屏、崩溃或明显卡顿 |
+
+### P2.6 招聘详情
+
+**结果：PASS。** 截图：[`默认态`](acceptance/screenshots/accept-p2b-jobdetail-default.png)、[`下半部`](acceptance/screenshots/accept-p2b-jobdetail-lower.png)。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 基础信息 | PASS | 公司 logo/名称、岗位名、推荐/活动招募/热门标签、地点、薪资、岗位职责与公司信息完整 |
+| 职责/要求/福利 | PASS | 职责、任职要求、福利待遇分区渲染，换行正常，未出现占位或压缩正文 |
+| 招聘信息 | PASS | 招募人数、投递人数、截止时间、发布时间字段齐全；本次后端截止时间为空，页面保留字段但不显示日期，属数据缺失而非字段缺失。见 [`accept-p2b-jobdetail-lower.png`](acceptance/screenshots/accept-p2b-jobdetail-lower.png) |
+| 联系方式与标签 | PASS | 手机号按接口返回值脱敏显示；标签、发布时间与详情字段一致 |
+| 收藏 | PASS | 点击底部“已收藏”后变为“收藏”，Toast“取消收藏”；再次点击恢复“已收藏”，返回列表同步；最终恢复原状态 |
+| 底部操作栏 | PASS | 收藏按钮与申请/已投递状态按钮固定在底部安全区上方，不遮挡正文；已投递状态为禁用外观 |
+| 返回 | PASS | PageHeader 返回招聘列表，滚动位置和收藏状态同步，无黑屏/白屏 |
+| 投递行为 | **NOT TESTED** | 按红线不发起 `POST /hire/submit`，不写生产投递记录；确认框、状态回传与请求参数仅代码走查，不据此判运行态通过 |
+
+### P2.7 助手
+
+**结果：PASS（核心链路，登记 Minor 偏差 1）。** 截图：[`默认态`](acceptance/screenshots/accept-p2b-helper-default.png)、[`ActionSheet`](acceptance/screenshots/accept-p2b-helper-actionsheet.png)、[`等待态`](acceptance/screenshots/accept-p2b-helper-waiting.png)、[`错误态`](acceptance/screenshots/accept-p2b-helper-error.png)、[`重试错误`](acceptance/screenshots/accept-p2b-helper-retry-error.png)、[`历史恢复`](acceptance/screenshots/accept-p2b-helper-history-restored.png)。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 预设问题 | PASS（配色偏差见 P2B-02） | 首次进入显示欢迎语与 2×3 预设问题卡，图标/标题/摘要/箭头齐全；点击预设问题直接发送，发送后预设区隐藏。见 [`accept-p2b-helper-default.png`](acceptance/screenshots/accept-p2b-helper-default.png) |
+| 输入与键盘 | PASS | 输入框可输入，键盘弹起时输入区/发送按钮保持可见；收起后布局恢复。见 [`accept-p2b-helper-keyboard.png`](acceptance/screenshots/accept-p2b-helper-keyboard.png) |
+| 发送与等待态 | PASS | 发送后立即出现右侧用户气泡；左侧显示“答答Novus智能校园助手”、头像与等待/加载指示，无重复发送 |
+| 错误气泡 | PASS | 无效 DashScope key 下显示“⚠️ AI 服务暂不可用：AI 服务未返回内容，请稍后重试”，用户消息和欢迎原文均保留；无崩溃/白屏。见 [`accept-p2b-helper-error.png`](acceptance/screenshots/accept-p2b-helper-error.png) |
+| 重试 | PASS | 点击“重试”再次进入等待态并返回错误，不会重复插入用户消息；重试期间历史内容保持。见 [`accept-p2b-helper-retry-error.png`](acceptance/screenshots/accept-p2b-helper-retry-error.png) |
+| 复制 | PASS（有限验证） | 长按 AI/用户消息打开菜单并选择复制，出现“已复制”Toast。模拟器无剪贴板查看工具，未回读剪贴板内容核对 |
+| ActionSheet/清空 | PASS | 顶部菜单打开 ActionSheet；选择清空后二次确认，确认后清空会话并恢复欢迎语和预设问题。见 [`accept-p2b-helper-actionsheet.png`](acceptance/screenshots/accept-p2b-helper-actionsheet.png)、[`accept-p2b-helper-clear-confirm.png`](acceptance/screenshots/accept-p2b-helper-clear-confirm.png) |
+| 历史恢复 | PASS | 发送并产生错误气泡后强制结束应用再冷启动，欢迎语、用户消息与错误气泡恢复，输入区正常。见 [`accept-p2b-helper-history-restored.png`](acceptance/screenshots/accept-p2b-helper-history-restored.png) |
+| 自动滚底 | PASS | 发送、等待、错误与重试后列表滚至最新消息，输入区不被遮挡；清空后回到顶部显示完整欢迎语 |
+| Markdown 渲染 | 部分 NOT TESTED | 欢迎语列表与错误文案正常；因无有效 AI key，未能生成含标题/粗体/链接/代码块的富 Markdown 历史消息，相关渲染未测 |
+| AI 真实逐字输出 | **NOT TESTED** | `DASHSCOPE_API_KEY` 无效；仅验证错误态、重试、原文保留、清空与历史恢复。按 `docs/tech-notes.md` 的约定不计代码缺陷 |
+
+### P2.8 知识列表
+
+**结果：PASS。** 截图：[`默认态`](acceptance/screenshots/accept-p2b-knowledge-default.png)、[`算法分类`](acceptance/screenshots/accept-p2b-knowledge-algorithm.png)、[`分类末尾`](acceptance/screenshots/accept-p2b-knowledge-tabs-end.png)、[`空分类`](acceptance/screenshots/accept-p2b-knowledge-empty.png)、[`到底`](acceptance/screenshots/accept-p2b-knowledge-list-bottom.png)。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 分类与数据量 | PASS | 15 个分类横向滚动可达；分类切换选中态正确；28 篇文章与参考 `static/mock/knowledge/index.js` 数量一致 |
+| 推荐标识与卡片 | PASS | 推荐红标、难度标、标题、摘要、主题标签、作者、日期、阅读时长/字数、浏览量、点赞数齐全；布局与参考卡片层级一致。见 [`accept-p2b-knowledge-default.png`](acceptance/screenshots/accept-p2b-knowledge-default.png) |
+| 搜索/排序 | PASS（以参考为准） | 参考 `pages/knowledge/index.vue` 未提供搜索或排序入口，本页未新增，不判缺失 |
+| 空分类 | PASS | 当前无文章分类显示“暂无知识内容 / 换个分类看看吧”，底部 Tab 保持可用。见 [`accept-p2b-knowledge-empty.png`](acceptance/screenshots/accept-p2b-knowledge-empty.png) |
+| 进入详情 | PASS | 点击文章进入“知识详情”，标题、作者、难度、日期与列表一致；PageHeader 返回列表正常 |
+| 点赞数同步 | PASS（行为偏差见 P2B-04） | 详情点赞后返回列表，对应文章点赞数同步 +1；再次取消后恢复；列表滚动/回顶正常。见 [`accept-p2b-knowledge-list-restored.png`](acceptance/screenshots/accept-p2b-knowledge-list-restored.png)、[`accept-p2b-knowledge-list-backtotop.png`](acceptance/screenshots/accept-p2b-knowledge-list-backtotop.png) |
+| 视觉、滚动与安全区 | PASS | 分类胶囊横向滚动，长列表滚动到底显示完整末尾卡片；无白屏、崩溃或明显掉帧。作者头像首字色块差异见 P2B-03 |
+
+### P2.9 知识详情
+
+**结果：PASS（核心链路，登记 Minor 行为偏差 1）。** 截图：[`顶部`](acceptance/screenshots/accept-p2b-knowledge-article-default.png)、[`中部`](acceptance/screenshots/accept-p2b-knowledge-article-mid.png)、[`代码块/下半部`](acceptance/screenshots/accept-p2b-knowledge-article-lower.png)、[`到底`](acceptance/screenshots/accept-p2b-knowledge-article-liked-bottom.png)、[`AI 错误`](acceptance/screenshots/accept-p2b-knowledge-ai-error.png)。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 完整正文 | PASS | 动态规划正文非 3 句占位；标题、引用、段落、粗体、有序/无序列表、提示框与“推荐练习顺序”完整可读，内容与参考 Markdown 一致 |
+| 代码块 | PASS | 多个代码块使用深色背景、等宽字体与横向内容布局，未被截断为纯文本；长代码可随页面滚动查看 |
+| 到底提示 | PASS | 连续滚动到底显示“坚持刷题，你一定能掌握动态规划！ 🚀”，无空白尾屏或重复内容。见 [`accept-p2b-knowledge-article-liked-bottom.png`](acceptance/screenshots/accept-p2b-knowledge-article-liked-bottom.png) |
+| 点赞/收藏 | PASS（参考行为偏差见 P2B-04） | 浮动红心从 `🤍` 切为 `❤️`，点赞数 `567 → 568`，Toast“收藏成功”；取消后 `568 → 567`；返回列表计数同步；重启后收藏状态与计数可恢复。最终已恢复原状态。见 [`accept-p2b-knowledge-article-liked-persisted.png`](acceptance/screenshots/accept-p2b-knowledge-article-liked-persisted.png)、[`accept-p2b-knowledge-article-restored.png`](acceptance/screenshots/accept-p2b-knowledge-article-restored.png) |
+| AI 解读面板 | PASS（仅错误路径） | 点击绿色 AI 浮动按钮显示“AI 智能解读”面板与加载态；无效 key 时显示“AI 服务暂不可用：AI 服务未返回内容，请稍后重试”，正文仍保留；“重新解读”可重试，关闭恢复页面。见 [`accept-p2b-knowledge-ai-error.png`](acceptance/screenshots/accept-p2b-knowledge-ai-error.png)、[`accept-p2b-knowledge-ai-retry-error.png`](acceptance/screenshots/accept-p2b-knowledge-ai-retry-error.png) |
+| 目录/滚动 | PASS（以参考为准） | 参考文章页无 TOC，本页未新增，不判缺失；顶部无横向溢出，正文滚动条与底部浮动按钮不互相遮挡 |
+| AI 真实解读输出 | **NOT TESTED** | 无效 `DASHSCOPE_API_KEY` 导致无法产生真实输出；加载/错误/重试/关闭链路已验证，按既有环境限制不计缺陷 |
+| 返回与安全区 | PASS | PageHeader 返回知识列表，点赞数与收藏状态同步；状态栏、底部安全区及浮动按钮未被系统手势区遮挡 |
+
+### 通用检查
+
+| 项目 | 结果 | 证据 |
+| --- | --- | --- |
+| PageHeader/返回 | PASS | 招聘列表/详情、知识列表/详情均有 PageHeader 返回；助手为 Tab 页，使用与小程序的菜单式标题栏；逐页返回无黑屏或错误 Tab |
+| 状态栏/安全区 | PASS | 五个页面状态栏内容可读，底部导航/操作栏/输入区未被系统手势条遮挡 |
+| 无死链 | PASS | 本批页面卡片、分类、收藏、AI、菜单、返回等可点元素均有响应；未发现无响应按钮 |
+| 无白屏/崩溃 | PASS | 页面进入、滚动、返回、重启恢复期间应用保持前台，无崩溃或空白页 |
+| 列表滚动 | PASS | 招聘、知识及助手消息列表连续滚动正常；回顶/到底行为可用 |
+| 生产数据红线 | PASS | 未发起招聘投递；未发布动态/评论；未删除生产内容 |
+
+### 缺陷与偏差
+
+#### P2B-01（Minor，P2.5 招聘分类栏与当前参考渲染不一致）
+
+- 参考：`../who_family_wechat/pages/recruit/index.vue:4` 中 `CategoryTabs` 被注释，当前小程序页面不渲染分类栏。
+- 实际：鸿蒙 `entry/src/main/ets/pages/JobList.ets:247` 定义、`:522` 渲染分类栏；功能正常，包含所有/已收藏/后端岗位类型。
+- 判定：`docs/parity-plan.md:110` 明确要求启用分类栏，因此这是任务清单主动偏差，但确实改变参考页布局。按 Minor 登记，建议负责人确认“以任务清单为准”或改为在验收时将该项列为允许偏差；验收阶段未修改代码。
+- 证据：[`accept-p2b-joblist-default.png`](acceptance/screenshots/accept-p2b-joblist-default.png)。
+
+#### P2B-02（Minor，P2.7 预设问题卡配色与参考不一致）
+
+- 参考：`../who_family_wechat/components/helper/PresetQuestions.vue:76-105` 使用四组渐变彩色卡片，按奇偶/3n/4n 着色。
+- 实际：`entry/src/main/ets/pages/Helper.ets:343-391` 结构与交互一致，但所有卡片统一为白底、灰字，缺少参考的多彩渐变视觉。
+- 期望：卡片结构不变的前提下恢复多色渐变或登记为可接受的视觉偏差。属 Minor 视觉差异，不影响点击与发送。
+- 证据：[`accept-p2b-helper-default.png`](acceptance/screenshots/accept-p2b-helper-default.png)。
+
+#### P2B-03（Minor，P2.8/P2.9 知识作者头像与参考不一致）
+
+- 参考：`../who_family_wechat/utils/randomData.js:2` 使用 `api.dicebear.com/7.x/pixel-art/svg?seed=<name>` 生成像素头像；列表与详情均加载该网络图。
+- 实际：`entry/src/main/ets/pages/Knowledge.ets:176` 与 `KnowledgeArticle.ets:192` 使用作者首字 + 固定蓝色圆底色块。视觉可读、无破图，但与参考头像风格明显不同。
+- 判定：首字色块可接受，但按“允许偏差必须登记”的原则登记为 Minor；若负责人将“避免第三方外链”列为设计决策，可转为允许偏差。验收阶段未修改代码。
+- 证据：[`accept-p2b-knowledge-default.png`](acceptance/screenshots/accept-p2b-knowledge-default.png)、[`accept-p2b-knowledge-article-default.png`](acceptance/screenshots/accept-p2b-knowledge-article-default.png)。
+
+#### P2B-04（Minor，P2.9 知识点赞会改计数并持久化，参考仅本地图标切换）
+
+- 参考：`../who_family_wechat/pages/knowledge/article.vue:147-153` 的 `toggleLike` 只切换 `isLiked` 并显示 Toast，不修改 `likes`、不写入本地存储；本页计数始终为基础值。
+- 实际：`entry/src/main/ets/pages/KnowledgeArticle.ets:88` 在已点赞时返回 `article.likes + 1`；`:91-103` 写入 `knowledgeLikedIds` 并通过 `knowledgeLikedDelta` 通知列表；`Knowledge.ets:27-56` 启动时与返回时同步计数，跨重启保持。运行态为 `567 → 568 → 567`，已恢复。
+- 判定：这是比参考更完整的持久化收藏/点赞体验，但改变了参考的计数与持久化语义，按未登记行为偏差登记为 Minor。建议负责人确认是否将“点赞数 +1 且持久化”列为主动增强；验收阶段未修改代码。
+- 证据：[`accept-p2b-knowledge-article-liked-bottom.png`](acceptance/screenshots/accept-p2b-knowledge-article-liked-bottom.png)、[`accept-p2b-knowledge-article-liked-persisted.png`](acceptance/screenshots/accept-p2b-knowledge-article-liked-persisted.png)、[`accept-p2b-knowledge-list-restored.png`](acceptance/screenshots/accept-p2b-knowledge-list-restored.png)。
+
+### 环境限制与 NOT TESTED 汇总
+
+| 项目 | 状态 | 原因与处理 |
+| --- | --- | --- |
+| AI 真实逐字输出/知识解读 | NOT TESTED | `DASHSCOPE_API_KEY` 无效，实际返回“AI 服务未返回内容”；已验证错误气泡、原文保留、自动滚底、重试、历史恢复与关闭。按 `docs/tech-notes.md:82-88` 不计代码缺陷 |
+| 招聘投递 | NOT TESTED | `POST /hire/submit` 会写生产投递记录，按任务红线未发起；仅代码走查确认入口与状态回传 |
+| 招聘后端分页 | NOT TESTED | `/hire/recommend-jobs` 当前仅 4 条，未达到触发 `lastId` 的阈值；到底文案已验证 |
+| 招聘下拉刷新/失败降级 | NOT TESTED | 未取得可靠刷新指示器/请求证据；有效 token 与网络稳定时未构造接口失败，失败重试与服务降级不作运行态结论 |
+| 招聘加载/全量空态 | 部分 NOT TESTED | 分类空态已实测；冷启动骨架与全量空态未取得可靠截图 |
+| 助手富 Markdown 历史 | NOT TESTED | 无有效 AI key，无法产生含代码块/标题/链接的 AI 回复；欢迎语列表与错误文案已正常显示 |
+| 剪贴板内容 | NOT TESTED | 复制按钮有“已复制”Toast；模拟器无剪贴板读取工具，未逐字核对剪贴板内容 |
+
+### 测试数据与清理
+
+- 招聘收藏：初始为已收藏；测试中取消并恢复，最终保持原始已收藏状态。
+- 知识点赞：`567 → 568 → 567`；持久化状态重新验证后恢复，最终列表/详情回到原始计数。
+- 助手会话：测试产生的用户消息与错误气泡已清空，恢复欢迎语与预设问题。
+- 招聘投递：未发起，未写入任何投递记录。
+- 动态/评论：未创建、修改或删除任何生产动态、评论或回复。
+- 设备网络：测试期间曾关闭 WLAN 验证网络页/降级入口，随后已恢复联网；应用最终停在首页前台运行。
+
+### 结论
+
+**通过：Blocker 0 / Major 0 / Minor 4。**
+
+P2.5–P2.9 五个页面的核心链路均可进入、可返回、可滚动，真实招聘与知识数据正常展示，收藏/点赞测试后已恢复，未产生招聘投递等生产副作用。分类栏、助手预设问题配色、知识作者头像、知识点赞持久化四项为已登记的 Minor 偏差，其中分类栏与点赞持久化更接近任务清单的主动增强而非阻断缺陷，建议负责人确认后转为允许偏差。AI 真实逐字输出与知识 AI 解读受无效 DashScope key 限制，招聘投递、后端分页与部分异常态按明确红线或数据条件标为 NOT TESTED；这些均不构成本轮代码缺陷。

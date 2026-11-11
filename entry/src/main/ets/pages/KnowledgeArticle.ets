@@ -8,11 +8,9 @@ import { ToastUtil } from '../utils/ToastUtil';
 
 import { PageHeader } from '../components/common/PageHeader';
 import { MarkdownView } from '../components/common/MarkdownView';
+import { NetImage } from '../components/common/NetImage';
 import { KnowledgeMock } from '../mock/KnowledgeMock';
 import { AiCallbacks, AiMessage, AiOptions, AiService, AiSession } from '../services/AiService';
-
-const LIKED_IDS_KEY = 'knowledgeLikedIds';
-const LIKED_DELTA_KEY = 'knowledgeLikedDelta';
 
 @Entry
 @Component
@@ -45,8 +43,7 @@ struct KnowledgeArticlePage {
     const fallback = MockData.knowledgeArticles().find((item: KnowledgeArticle) => item.id === id) ||
       MockData.knowledgeArticles()[0];
     this.article = fallback;
-    const likedIds = await CacheStore.getJson<string[]>(this.context, LIKED_IDS_KEY, []);
-    this.isLiked = likedIds.indexOf(this.article.id) >= 0;
+    this.isLiked = false;
     await CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${this.article.id}`, this.article);
   }
 
@@ -70,8 +67,8 @@ struct KnowledgeArticlePage {
     return '#4CAF50';
   }
 
-  private authorInitial(): string {
-    return this.article.author.length > 0 ? this.article.author.substring(0, 1) : '互';
+  private avatarUrl(author: string): string {
+    return `https://api.dicebear.com/7.x/pixel-art/png?seed=${encodeURIComponent(author)}`;
   }
 
   private formatNumber(value: number): string {
@@ -85,22 +82,12 @@ struct KnowledgeArticlePage {
   }
 
   private likeCount(): number {
-    return this.article.likes + (this.isLiked ? 1 : 0);
+    return this.article.likes;
   }
 
-  async toggleLike(): Promise<void> {
+  toggleLike(): void {
     this.isLiked = !this.isLiked;
     ToastUtil.show(this.isLiked ? '收藏成功' : '取消收藏');
-    const likedIds = await CacheStore.getJson<string[]>(this.context, LIKED_IDS_KEY, []);
-    let nextIds: string[] = [];
-    if (this.isLiked) {
-      nextIds = likedIds.concat([this.article.id]);
-    } else {
-      nextIds = likedIds.filter((id: string) => id !== this.article.id);
-    }
-    await CacheStore.setJson<string[]>(this.context, LIKED_IDS_KEY, nextIds);
-    // 返回知识列表时同步红心计数。
-    AppStorage.setOrCreate<string>(LIKED_DELTA_KEY, `${this.article.id}|${this.isLiked ? '1' : '0'}`);
   }
 
   private aiPrompt(): string {
@@ -189,15 +176,18 @@ struct KnowledgeArticlePage {
         .margin({ top: 14 })
 
       Row() {
-        Text(this.authorInitial())
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .textAlign(TextAlign.Center)
-          .width(40)
-          .height(40)
-          .borderRadius(20)
-          .backgroundColor('#2979FF')
+        Stack() {
+          NetImage({
+            imageUrl: this.avatarUrl(this.article.author),
+            imageHeight: 40,
+            imageRadius: 20,
+            fitMode: 'cover'
+          })
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .clip(true)
         Column() {
           Text(this.article.author)
             .fontSize(14)
