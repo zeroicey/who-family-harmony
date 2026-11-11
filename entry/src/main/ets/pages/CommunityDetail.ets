@@ -104,14 +104,16 @@ struct CommunityDetail {
   }
 
   async onRefresh(): Promise<void> {
-    if (this.refreshing) {
-      return;
-    }
     this.refreshing = true;
-    await this.commentPager.reload();
-    this.comments = this.commentPager.items;
-    this.refreshing = false;
-    this.showBackToTop = false;
+    try {
+      await this.commentPager.reload();
+      this.comments = this.commentPager.items;
+      this.showBackToTop = false;
+    } catch (err) {
+      LogUtil.warn('detail', `refresh failed ${(err as Error).message}`);
+    } finally {
+      this.refreshing = false;
+    }
   }
 
   async loadMoreComments(): Promise<void> {

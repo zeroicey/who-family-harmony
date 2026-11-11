@@ -77,14 +77,16 @@ export struct Community {
   }
 
   async onRefresh(): Promise<void> {
-    if (this.refreshing) {
-      return;
-    }
     this.refreshing = true;
-    await this.pager.reload();
-    this.posts = this.pager.items;
-    this.refreshing = false;
-    this.showBackToTop = false;
+    try {
+      await this.pager.reload();
+      this.posts = this.pager.items;
+      this.showBackToTop = false;
+    } catch (err) {
+      LogUtil.warn('community', `refresh failed ${(err as Error).message}`);
+    } finally {
+      this.refreshing = false;
+    }
   }
 
   async loadMore(): Promise<void> {
@@ -131,7 +133,12 @@ export struct Community {
     if (post.viewCount > 0) {
       return post.viewCount;
     }
-    return 10 + (Number(post.id) % 191);
+    const source = post.id.length > 0 ? post.id : post.title;
+    let seed = 0;
+    for (let index = 0; index < source.length; index++) {
+      seed = (seed * 31 + source.charCodeAt(index)) % 100000;
+    }
+    return 10 + (seed % 191);
   }
 
   private errandTypeColor(type: string): string {

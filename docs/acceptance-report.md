@@ -101,3 +101,61 @@
 **不通过**：Blocker 0 / Major 6 / Minor 3。
 
 F2、F4、F5、F8、F9、F11 未达到本批完成标准；F6 的代码块/行内代码/链接与 F7 的真实逐字输出为 NOT TESTED。建议编码 agent 先提交当前工作区，再补齐组件接入、上传/检查/分页链路和知识正文，然后提交复验。复验只需覆盖上述缺陷及受影响页面。
+
+## 复验（round 2，73dcef8）
+
+- 复验日期：2026-11-11
+- 分支：`feat/harmony-parity`
+- 冻结点：`73dcef8d69c4a0a6cde1425f57aaea6e9cf57ded`
+- 冻结状态：复验开始前 `git status --short` 为空；复验期间未修改源码、构建配置、`docs/parity-plan.md` 或 `env.ets`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，型号 `emulator`，API 24
+- 后端：生产 `https://api.hcyj.xyz`
+- 安装包：`entry-default-unsigned.hap`，SHA-256 `f37e61eb2eca241a38fb1de81d05cfb5dc75c76f47f9210dcf6619145872f99d`，安装成功
+- 参考实现：`../who_family_wechat` HEAD `47896e31150215b31e751e1f04427f7a56b53f99`，`git status --short` 为空
+
+### 门槛与环境
+
+| 项 | 结果 | 证据 / 备注 |
+| --- | --- | --- |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Defects: 19; Errors: 0; Warns: 19; Suggestions: 0` |
+| Web 图片残留 | PASS | 预检输出 `OK：无 Web 图片组件残留` |
+| 路由 | PASS | `注册路由 30 个`，路由文件与注册表一致 |
+| `DEMO_TOKEN` | 环境阻塞 | 启动后 `/user/userInfo?id=2`、社区、资料、检查、打印等请求均返回 HTTP 401；已按失败路径降级。真实成功链路无法验证 |
+| `DASHSCOPE_API_KEY` | 环境阻塞 | DashScope 流式请求无内容，重试 2 次后出现错误气泡；真实逐字输出无法验证 |
+| 模拟器媒体/文件 | 环境阻塞 | 相册无图片、文件选择器显示“没有文件”；选择器可打开，选中后的读取/预览/删除/上传无法验证 |
+
+### 复验项
+
+| ID | 结果 | 证据 |
+| --- | --- | --- |
+| M1 公共组件接入 | **PASS** | 旧 `components/EmptyState.ets`、`components/LoadingView.ets` 已删除。公共组件有真实 import 与调用：`EmptyState`（Community/JobList/Mine/CommunityDetail/Knowledge/MeOrder）、`LoadingView`（JobDetail）、`Skeleton`（Community/JobList/Mine/CommunityDetail/MeOrder）、`Tag`（Community/JobList/JobDetail）、`PrimaryButton`（CommunityPublish/MeProfile/MeFeedback/ServicePrint）、`ConfirmDialog`（CommunityDetail/MeAddress/MeSetting/ServicePrint）、`BackToTop`（Community/CommunityDetail/Mine/Knowledge）、`SectionCard`（Mine/Service/MeSetting）。`BottomSheet` 未接入，但确认场景由 `ConfirmDialog` 覆盖，按约定记录为偏差 |
+| M2 二进制上传链路 | **PASS（401 链路；真实成功 NOT TESTED）** | `UploadService.uploadToUrl()` 调用 `HttpClient.putBinary`；`publishWithImages` 顺序为文本检查 → `prepare-post` → 图片检查 → PUT → `img-uploaded` → `finalize-post`。设置页自检实际打开相册，取消后用内置 PNG 发出 `PUT /community/img-uploaded`，日志为 `binary bytes=68`、`HTTP 401`，界面提示“HTTP 401（请求已发出）”。截图：`accept2-settings-upload-picker.png`、`accept2-settings-upload-401.png` |
+| M3 选图/选文件 | **PASS（入口与限额）／选中后 NOT TESTED** | 发布相册选择器日志 `maxSelectCount=4`，界面“已选 0/4”；头像选择器 `maxSelectCount=1`；反馈选择器 `maxSelectCount=3`；打印文档选择器可打开并显示“没有文件”。预览/删除及文件名、大小展示在源码中存在。模拟器无媒体/文件，选中后的读取、预览、删除、base64 下单 NOT TESTED。截图：`accept2-publish-photo-picker.png`、`accept2-avatar-photo-picker.png`、`accept2-feedback-photo-picker.png`、`accept2-print-document-picker.png` |
+| M4 内容检查 | **PASS（401 阻断；检查通过 NOT TESTED）** | 发布、评论、资料保存均先调用 `CheckApi`；头像保存走 `UserApi.updateAvatar` 的 `/check/img`。实测评论、发布、资料保存均先发出 `/check/text`，401 后阻止提交并提示，未新增本地评论或保存资料。日志分别见评论 `POST /check/text unauthorized`、发布 `POST /check/text unauthorized`、资料 `内容检查未授权（401）`。截图：`accept2-comment-check-blocked.png`、`accept2-publish-check-blocked.png`、`accept2-profile-check-blocked.png`。检查通过路径 NOT TESTED |
+| M5 分页/刷新/回顶 | **FAIL** | `PagedListController`、`Refresh`、`onScrollEdge`、`BackToTop` 已接入社区、详情评论和我的动态；`lastPostId`/`lastCommentId` 参数确实拼入 API 请求；社区 401 Mock 降级后可浏览，底部显示“没有更多数据了”，回顶按钮实测可回到顶部。**但下拉刷新失效**：`Refresh({ refreshing: $$this.refreshing })` 在进入刷新态时先把 `refreshing` 置为 true，而三个页面的 `onRefresh()` 开头均 `if (this.refreshing) return`，导致首次刷新直接返回、请求不发出且指示器永久旋转。社区与详情均复现；三个页面源码模式相同。真实分页翻页 NOT TESTED（401）。截图：`accept2-community-fallback.png`、`accept2-community-bottom.png`、`accept2-community-top-after-backtotop.png`、`accept2-community-detail.png`、`accept2-community-refresh-drag.png`、`accept2-detail-refresh2.png` |
+| M6 知识正文完整 | **PASS** | 临时脚本比对 `KnowledgeContent.ets` 与 `../who_family_wechat/static/mock/knowledge/dynamic-programming.js`：`refLength=4434`、`dpLength=4434`、`equal=true`；代码围栏各 12 个，反斜杠各 0 个。运行态文章标题/引用/列表/引用块/代码块和末尾“坚持刷题…”完整可见，无孤立反斜杠。详情加载强制使用当前 Mock，旧缓存不再覆盖正文。截图：`accept2-knowledge-article-top.png`、`accept2-knowledge-article-code.png`、`accept2-knowledge-article-end.png` |
+| m1 助手自动滚底 | **PASS** | 发送 `scrolltest` 后，最新用户气泡与错误气泡“AI 服务暂不可用：AI 服务未返回内容，请稍后重试”自动进入当前视口，无需手动上滑。截图：`accept2-helper-error-autoscroll.png` |
+| m2 社区 401 降级 | **PASS（附带 m4）** | 社区 401 日志后命中缓存失败并回退 `CommunityMock.posts()`，页面实际显示 4 条演示动态；下拉区/底部提示可见。社区卡片浏览量显示 `NaN`，另登记为 m4。截图：`accept2-community-fallback.png`、`accept2-community-bottom.png` |
+| m3 NetImage URL 重置 | **NOT TESTED（静态未见缺陷）** | `NetImage` 已对 `imageUrl` 增加 `@Watch('onImageUrlChanged')` 并在 `aboutToReuse` 中重置 `loadFailed`；当前模拟器数据无法构造同一列表项 URL 变化或复用换图场景，运行态未验证。依据验收规则不判 PASS |
+
+### 新缺陷
+
+| 编号 | 级别 | 页面/任务 | 描述 | 复现 | 期望 | 截图/证据 |
+| --- | --- | --- | --- | --- | --- | --- |
+| M5 | Major | 社区/详情/我的动态刷新 | 下拉刷新被 `if (this.refreshing) return` 吞掉；`$$refreshing` 已由 Refresh 置 true，导致回调直接返回、请求不发、指示器不停 | 社区顶部下拉直至刷新指示器出现；等待超过 10 秒，无新的 `recommend-post` 请求，指示器仍在。详情页同样复现 | 下拉后发出刷新请求，完成后复位 `refreshing` | `accept2-community-refresh-drag.png`、`accept2-detail-refresh2.png`；`pages/Community.ets:79`、`CommunityDetail.ets:106`、`Mine.ets:108` |
+| m4 | Minor | 社区降级列表 | Mock 动态 ID 为 `post-1` 等非数字字符串，`Number(post.id) % 191` 得到 `NaN`，卡片浏览量显示 `NaN` | 401 降级进入社区列表，任意 Mock 动态底部眼睛图标后显示 `NaN` | 显示可读的浏览量或回退为 0/固定演示值 | `accept2-community-fallback.png`、`accept2-community-bottom.png`；`pages/Community.ets:130-134` |
+
+### 允许偏差与未测项
+
+- `BottomSheet` 本轮未接入；评论删除、地址删除、清缓存、打印确认均由 `ConfirmDialog` 覆盖，按修复说明记录为允许偏差。
+- 真实上传成功、内容检查通过、后端分页翻页、AI 逐字输出：受 401/无效 key 阻塞，标记 NOT TESTED，不判代码缺陷；已验证到请求与失败处理链路。
+- 相册/文件选择后的读取、预览、删除、上传与 base64 下单：模拟器无媒体/文件，NOT TESTED。
+- NetImage 列表复用/URL 变化：无法构造运行态场景，NOT TESTED。
+- 未重新执行完整 P2 页面视觉矩阵，仅复验本轮缺陷及直接受影响页面。
+
+### 结论
+
+**不通过：Blocker 0 / Major 1 / Minor 1。**
+
+M1、M2、M3、M4、M6、m1、m2 在可验证范围内通过；M5 因三处下拉刷新被状态守卫吞掉而未达到完成标准；m3 运行态 NOT TESTED。下一步应先修复 M5 的刷新入口与 `try/finally` 复位逻辑，并修复 Mock 浏览量的 `NaN`，随后只复验这两项及受影响页面。

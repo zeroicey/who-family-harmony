@@ -106,13 +106,15 @@ export struct Mine {
   }
 
   async onRefresh(): Promise<void> {
-    if (this.refreshing) {
-      return;
-    }
     this.refreshing = true;
-    await this.refresh();
-    this.refreshing = false;
-    this.showBackToTop = false;
+    try {
+      await this.refresh();
+      this.showBackToTop = false;
+    } catch (err) {
+      LogUtil.warn('mine', `refresh failed ${(err as Error).message}`);
+    } finally {
+      this.refreshing = false;
+    }
   }
 
   async loadMorePosts(): Promise<void> {
