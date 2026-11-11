@@ -1,3 +1,4 @@
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServicePersonInfo {
@@ -523,6 +524,7 @@ struct ServicePersonInfo {
 
   build() {
     Column() {
+      PageHeader({ title: '校园人流数据' })
       Scroll() {
         Column() {
           this.HeaderCard()

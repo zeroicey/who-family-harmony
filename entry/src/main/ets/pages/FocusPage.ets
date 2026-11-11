@@ -4,6 +4,7 @@ import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct FocusPage {
@@ -243,6 +244,7 @@ struct FocusPage {
   build() {
     Stack() {
       Column() {
+        PageHeader({ title: '专注' })
         this.Header()
         this.TimerCircle()
         this.Controls()

@@ -5,6 +5,8 @@ import { HelperApi } from '../api/HelperApi';
 import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
+import { MarkdownView } from '../components/common/MarkdownView';
+import { AiCallbacks, AiSession } from '../services/AiService';
 
 @Entry
 @Component
@@ -14,13 +16,15 @@ export struct Helper {
   @State questions: PresetQuestion[] = MockData.presetQuestions();
   @State inputText: string = '';
   @State isAIReplying: boolean = false;
+  private aiSession: AiSession | null = null;
 
   aboutToAppear(): void {
     this.load();
   }
 
   async load(): Promise<void> {
-    this.messages = await CacheStore.getJson<ChatMessage[]>(this.context, 'helperMessages', MockData.initialMessages());
+    const cached = await CacheStore.getJson<ChatMessage[]>(this.context, 'helperMessages', MockData.initialMessages());
+    this.messages = cached.filter((item: ChatMessage) => item.id.indexOf('ai-pending') !== 0);
   }
 
   async send(content: string): Promise<void> {
@@ -39,20 +43,33 @@ export struct Helper {
     this.messages = this.messages.concat([userMessage, pendingMessage]);
     this.inputText = '';
     this.isAIReplying = true;
-    try {
-      await CacheStore.setJson<ChatMessage[]>(this.context, 'helperMessages', this.messages);
-      const aiMessage = await HelperApi.sendMessage(safeText);
-      this.replaceMessage(pendingId, aiMessage.content);
-      await CacheStore.setJson<ChatMessage[]>(this.context, 'helperMessages', this.messages);
-    } catch (_) {
-      this.replaceMessage(pendingId, '抱歉，AI助手暂时无法回复，请稍后再试。');
-      try {
-        await CacheStore.setJson<ChatMessage[]>(this.context, 'helperMessages', this.messages);
-      } catch (_) {}
-      ToastUtil.show('AI 回复失败');
-    } finally {
-      this.isAIReplying = false;
-    }
+    let accumulated = '';
+    const callbacks = new AiCallbacks(
+      (chunk: string) => {
+        accumulated += chunk;
+        this.replaceMessage(pendingId, accumulated);
+      },
+      (fullText: string) => {
+        this.replaceMessage(pendingId, fullText);
+        this.isAIReplying = false;
+        this.aiSession = null;
+        this.persistMessages();
+      },
+      (message: string) => {
+        this.replaceMessage(pendingId, message);
+        this.isAIReplying = false;
+        this.aiSession = null;
+        this.persistMessages();
+        ToastUtil.show('AI 回复失败');
+      }
+    );
+    // 逐字流式输出；请求失败时 AiService 自动重试一次
+    this.aiSession = HelperApi.sendStream(safeText, callbacks);
+  }
+
+  private persistMessages(): void {
+    CacheStore.setJson<ChatMessage[]>(this.context, 'helperMessages', this.messages).catch(() => {
+    });
   }
 
   replaceMessage(id: string, content: string): void {
@@ -74,6 +91,11 @@ export struct Helper {
       primaryButton: {
         value: '清空',
         action: () => {
+          if (this.aiSession !== null) {
+            this.aiSession.cancel();
+            this.aiSession = null;
+            this.isAIReplying = false;
+          }
           this.messages = MockData.initialMessages();
           CacheStore.setJson<ChatMessage[]>(this.context, 'helperMessages', this.messages);
         }
@@ -123,10 +145,15 @@ export struct Helper {
           .margin({ right: 8 })
       }
       Column() {
-        Text(message.content)
-          .fontSize(14)
-          .fontColor(message.role === 'user' ? '#FFFFFF' : '#333333')
-          .lineHeight(22)
+        if (message.role === 'ai') {
+          MarkdownView({ markdown: message.content, baseFontSize: 14 })
+            .width('100%')
+        } else {
+          Text(message.content)
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .lineHeight(22)
+        }
       }
       .constraintSize({ maxWidth: '78%' })
       .padding({ left: 14, right: 14, top: 11, bottom: 11 })
@@ -170,7 +197,7 @@ export struct Helper {
         Column() {
           ForEach(this.messages, (message: ChatMessage) => {
             this.MessageBubble(message)
-          }, (message: ChatMessage) => message.id)
+          }, (message: ChatMessage) => `${message.id}-${message.content.length}-${message.content}`)
 
           if (this.messages.length === 1) {
             this.PresetQuestions()

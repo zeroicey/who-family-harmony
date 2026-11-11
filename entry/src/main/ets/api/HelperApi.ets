@@ -1,6 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { ENV } from './env';
 import { ChatMessage } from '../models/MiniProgramModels';
+import { AiCallbacks, AiMessage, AiOptions, AiService, AiSession } from '../services/AiService';
 
 class DashScopeMessage {
   role: string = '';
@@ -127,5 +128,33 @@ export class HelperApi {
     const safeTitle = title.trim().length === 0 ? '校园分享' : title.trim();
     const safeContent = content.trim().length === 0 ? '今天想记录一件校园生活里的小事。' : content.trim();
     return `标题建议：${safeTitle}\n\n正文润色：${safeContent}\n\n补充建议：可以写清时间、地点、需求和联系方式，让社区同学更容易理解并回应。`;
+  }
+
+  /** 助手对话流式版：逐字返回，可取消。 */
+  static sendStream(message: string, callbacks: AiCallbacks, options: AiOptions = new AiOptions()): AiSession {
+    return AiService.chat(message, callbacks, options);
+  }
+
+  /** 多轮流式对话（AI 解读、课表/成绩分析等复用）。 */
+  static streamMessages(
+    messages: AiMessage[],
+    callbacks: AiCallbacks,
+    options: AiOptions = new AiOptions()
+  ): AiSession {
+    return AiService.chatWithMessages(messages, callbacks, options);
+  }
+
+  /** 发布动态 AI 润色（与小程序 system prompt 一致），流式返回优化文本。 */
+  static polishStream(title: string, content: string, callbacks: AiCallbacks, options: AiOptions = new AiOptions()): AiSession {
+    const opts = options;
+    opts.systemPrompt = '你是一个专业的内容编辑助手。请帮用户优化社区帖子的标题和内容，使其更加吸引人、表达更清晰、语气更友好。优化后的内容应该保持原意，但更加生动有趣。\n\n请严格按照以下JSON格式返回结果，不要包含任何其他内容：\n{"title":"优化后的标题","content":"优化后的内容"}\n\n标题要简洁有力，控制在30字以内。内容要保持原意，让表达更流畅自然。';
+    opts.maxTokens = 2000;
+    opts.temperature = 0.8;
+    opts.topP = 0.9;
+    const messages: AiMessage[] = [
+      new AiMessage('system', opts.systemPrompt),
+      new AiMessage('user', `请帮我优化这篇帖子：\n\n标题：${title}\n\n内容：${content}`)
+    ];
+    return AiService.chatWithMessages(messages, callbacks, opts);
   }
 }

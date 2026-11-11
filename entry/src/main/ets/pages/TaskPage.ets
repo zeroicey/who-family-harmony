@@ -6,6 +6,7 @@ import { CacheStore } from '../stores/CacheStore';
 import { DateUtil } from '../utils/DateUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct TaskPage {
@@ -279,6 +280,7 @@ struct TaskPage {
   build() {
     Stack() {
       Column() {
+        PageHeader({ title: '任务' })
         this.AddTaskBar()
         this.Motivation()
         Scroll() {

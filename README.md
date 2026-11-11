@@ -7,6 +7,11 @@ HarmonyOS NEXT（ArkTS / ArkUI）客户端，与「互成一家」微信小程�
 
 项目从课程期末作业的 HarmonyOS 实现中抽取而来，现已作为独立客户端项目维护，不再只是一份作业交付物。
 
+> **当前状态（2026-11-11）**：工程可构建，页面骨架齐全，正在与微信小程序逐页对齐。
+> 架构评审结论、施工清单、验收标准和 agent 上手说明分别见
+> [AGENTS.md](AGENTS.md)、[docs/parity-plan.md](docs/parity-plan.md)、[docs/acceptance.md](docs/acceptance.md)、[docs/tech-notes.md](docs/tech-notes.md)。
+> 下方「功能」描述的是目标能力，当前完成度以任务清单为准。
+
 ## 功能
 
 五大 Tab：**首页 / 社区 / 助手 / 知识 / 我的**，共 30 个页面。

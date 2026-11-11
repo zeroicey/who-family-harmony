@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { CommunityApi } from '../api/CommunityApi';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { CommunityPost } from '../models/CommunityPost';
 import { AuthStore } from '../stores/AuthStore';
 import { LogUtil } from '../utils/LogUtil';
@@ -255,7 +255,7 @@ export struct Community {
         .width('100%')
 
       if (this.firstImage(post).length > 0) {
-        RemoteImage({
+        NetImage({
           imageUrl: this.firstImage(post),
           imageHeight: 200,
           imageRadius: 6,

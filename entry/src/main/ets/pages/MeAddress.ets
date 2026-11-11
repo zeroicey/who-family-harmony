@@ -7,6 +7,7 @@ import { UserApi } from '../api/UserApi';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAddress {
@@ -168,6 +169,7 @@ struct MeAddress {
 
   build() {
     Column() {
+      PageHeader({ title: '地址管理' })
       Scroll() {
         Column() {
           if (this.addresses.length > 0) {

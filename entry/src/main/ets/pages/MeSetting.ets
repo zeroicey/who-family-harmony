@@ -4,6 +4,7 @@ import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeSetting {
@@ -67,6 +68,7 @@ struct MeSetting {
 
   build() {
     Column() {
+      PageHeader({ title: '设置' })
       Scroll() {
         Column() {
           Column() {

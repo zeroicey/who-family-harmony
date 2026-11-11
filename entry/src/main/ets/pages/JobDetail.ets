@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { Job } from '../models/Job';
 import { RouteParams } from '../models/MiniProgramModels';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { JobApi } from '../api/JobApi';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
@@ -10,6 +10,7 @@ import { LogUtil } from '../utils/LogUtil';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct JobDetail {
@@ -118,7 +119,7 @@ struct JobDetail {
     Column() {
       Row() {
         if (this.job.logoUrl.length > 0) {
-          RemoteImage({
+          NetImage({
             imageUrl: this.job.logoUrl,
             imageHeight: 50,
             imageRadius: 6,
@@ -282,6 +283,7 @@ struct JobDetail {
 
   build() {
     Column() {
+      PageHeader({ title: '招聘详情' })
       if (this.loading) {
         Column() {
           Text('加载中...')

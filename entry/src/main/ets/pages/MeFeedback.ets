@@ -1,5 +1,6 @@
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeFeedback {
@@ -160,6 +161,7 @@ struct MeFeedback {
 
   build() {
     Column() {
+      PageHeader({ title: '反馈' })
       Scroll() {
         Column() {
           Text('倾听您的声音')

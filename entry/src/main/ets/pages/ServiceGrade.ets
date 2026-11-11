@@ -3,6 +3,7 @@ import { SchoolApi } from '../api/SchoolApi';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServiceGrade {
@@ -379,6 +380,7 @@ struct ServiceGrade {
 
   build() {
     Column() {
+      PageHeader({ title: '成绩查询' })
       Scroll() {
         Column() {
           this.HeaderSection()

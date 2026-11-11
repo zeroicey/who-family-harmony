@@ -1,11 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { Job } from '../models/Job';
 import { JobApi } from '../api/JobApi';
 import { AuthStore } from '../stores/AuthStore';
 import { LogUtil } from '../utils/LogUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 export struct JobList {
@@ -68,7 +69,7 @@ export struct JobList {
       Row() {
         Stack({ alignContent: Alignment.Center }) {
           if (job.logoUrl.length > 0) {
-            RemoteImage({
+            NetImage({
               imageUrl: job.logoUrl,
               imageHeight: 60,
               imageRadius: 10,
@@ -245,7 +246,9 @@ export struct JobList {
   }
 
   build() {
-    Scroll() {
+    Column() {
+      PageHeader({ title: '招聘' })
+      Scroll() {
       Column() {
         ForEach(this.jobs, (job: Job) => {
           this.RecruitCard(job)
@@ -253,6 +256,9 @@ export struct JobList {
       }
       .width('100%')
       .padding(10)
+      }
+      .width('100%')
+      .layoutWeight(1)
     }
     .width('100%')
     .height('100%')

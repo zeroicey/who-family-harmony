@@ -1,7 +1,8 @@
 import { router } from '@kit.ArkUI';
-import { WatermarkImage } from '../components/WatermarkImage';
+import { CoverImage } from '../components/common/CoverImage';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServiceExpress {
@@ -66,9 +67,10 @@ struct ServiceExpress {
 
   build() {
     Column() {
+      PageHeader({ title: '快递代取' })
       Scroll() {
         Column() {
-          WatermarkImage({
+          CoverImage({
             imageUrl: 'https://api.hcyj.xyz/images/dngg.jpg',
             title: '',
             watermarkText: '互成一家 | 快递代取',

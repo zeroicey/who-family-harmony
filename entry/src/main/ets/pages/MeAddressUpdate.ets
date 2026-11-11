@@ -7,6 +7,7 @@ import { UserApi } from '../api/UserApi';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAddressUpdate {
@@ -127,6 +128,7 @@ struct MeAddressUpdate {
 
   build() {
     Column() {
+      PageHeader({ title: '修改地址' })
       Scroll() {
         Column() {
           this.FormInput('地址别名', '如：家、学校', this.item.area, 'area')

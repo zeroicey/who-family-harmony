@@ -1,6 +1,7 @@
 import { router } from '@kit.ArkUI';
 import { RouteParams } from '../models/MiniProgramModels';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServiceSuccess {
@@ -77,6 +78,7 @@ struct ServiceSuccess {
 
   build() {
     Column() {
+      PageHeader({ title: '下单成功' })
       Scroll() {
         Column() {
           Text(this.titleText)

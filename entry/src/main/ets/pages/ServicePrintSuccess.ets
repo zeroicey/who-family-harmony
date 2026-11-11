@@ -3,6 +3,7 @@ import { router } from '@kit.ArkUI';
 import { PrintOrder } from '../models/MiniProgramModels';
 import { CacheStore } from '../stores/CacheStore';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServicePrintSuccess {
@@ -84,6 +85,7 @@ struct ServicePrintSuccess {
 
   build() {
     Column() {
+      PageHeader({ title: '打印下单成功' })
       Scroll() {
         Column() {
           Column() {

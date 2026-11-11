@@ -5,6 +5,7 @@ import { HelperApi } from '../api/HelperApi';
 import { AuthStore } from '../stores/AuthStore';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct CommunityPublish {
@@ -112,6 +113,7 @@ struct CommunityPublish {
 
   build() {
     Column() {
+      PageHeader({ title: '发布动态' })
       Scroll() {
         Column() {
           this.ImageUploader()

@@ -1,12 +1,13 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
-import { WatermarkImage } from '../components/WatermarkImage';
+import { CoverImage } from '../components/common/CoverImage';
 import { PrintOrder } from '../models/MiniProgramModels';
 import { PrintApi } from '../api/PrintApi';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct ServicePrint {
@@ -432,9 +433,10 @@ struct ServicePrint {
   build() {
     Stack() {
       Column() {
+        PageHeader({ title: '文件打印' })
         Scroll() {
           Column() {
-            WatermarkImage({
+            CoverImage({
               imageUrl: 'https://api.hcyj.xyz/images/dnfw.png',
               title: '',
               watermarkText: '互成一家 | 校园打印服务',

@@ -1,3 +1,4 @@
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAbout {
@@ -81,7 +82,9 @@ struct MeAbout {
   }
 
   build() {
-    Scroll() {
+    Column() {
+      PageHeader({ title: '关于' })
+      Scroll() {
       Column() {
         Row() {
           Text('互')
@@ -126,6 +129,9 @@ struct MeAbout {
         .margin({ top: -38 })
       }
       .width('100%')
+      }
+      .width('100%')
+      .layoutWeight(1)
     }
     .width('100%')
     .height('100%')

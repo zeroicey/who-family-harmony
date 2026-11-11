@@ -1,11 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { UserProfile } from '../models/UserProfile';
 import { AuthStore } from '../stores/AuthStore';
 import { UserApi } from '../api/UserApi';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeProfile {
@@ -68,7 +69,7 @@ struct MeProfile {
         .width('100%')
       Stack({ alignContent: Alignment.BottomEnd }) {
         if (this.user.avatarUrl.length > 0) {
-          RemoteImage({
+          NetImage({
             imageUrl: this.user.avatarUrl,
             imageHeight: 86,
             imageRadius: 43,
@@ -247,6 +248,7 @@ struct MeProfile {
 
   build() {
     Column() {
+      PageHeader({ title: '个人资料' })
       Scroll() {
         Column() {
           this.AvatarSection()

@@ -1,3 +1,5 @@
+import { AppColors, AppFont, AppRadius, AppSpace } from '../theme/Theme';
+
 @Component
 export struct EmptyState {
   @Prop title: string = '暂无数据';
@@ -7,19 +9,20 @@ export struct EmptyState {
     Column() {
       Text('—')
         .fontSize(28)
-        .fontColor('#98A2B3')
+        .fontColor(AppColors.textTertiary)
       Text(this.title)
-        .fontSize(15)
+        .fontSize(AppFont.md)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#475467')
+        .fontColor(AppColors.textSecondary)
+        .margin({ top: AppSpace.sm })
       Text(this.description)
-        .fontSize(12)
-        .fontColor('#98A2B3')
-        .margin({ top: 4 })
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.textTertiary)
+        .margin({ top: AppSpace.xs })
     }
     .width('100%')
-    .padding(24)
-    .borderRadius(12)
-    .backgroundColor('#F9FAFB')
+    .padding(AppSpace.xxl)
+    .borderRadius(AppRadius.md)
+    .backgroundColor(AppColors.bgPage)
   }
 }

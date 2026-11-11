@@ -6,7 +6,7 @@ import { FocusApi } from '../api/FocusApi';
 import { TaskApi } from '../api/TaskApi';
 import { UserApi } from '../api/UserApi';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { CommunityPost } from '../models/CommunityPost';
 import { StudyTask } from '../models/Task';
 import { UserProfile } from '../models/UserProfile';
@@ -175,7 +175,7 @@ export struct Mine {
         Stack({ alignContent: Alignment.Bottom }) {
           Stack({ alignContent: Alignment.TopStart }) {
             if (this.avatarUrl.length > 0) {
-              RemoteImage({
+              NetImage({
                 imageUrl: this.avatarUrl,
                 imageHeight: 64,
                 imageRadius: 32,
@@ -445,7 +445,7 @@ export struct Mine {
         .width('100%')
 
       if (this.firstPostImage(post).length > 0) {
-        RemoteImage({
+        NetImage({
           imageUrl: this.firstPostImage(post),
           imageHeight: 200,
           imageRadius: 6,

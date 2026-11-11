@@ -1,7 +1,8 @@
 import { router } from '@kit.ArkUI';
-import { WatermarkImage } from '../components/WatermarkImage';
+import { CoverImage } from '../components/common/CoverImage';
 import { MockData, ServiceItem } from '../utils/MockData';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct Service {
@@ -53,7 +54,7 @@ struct Service {
   ServiceCard(item: ServiceItem) {
     Column() {
       Stack() {
-        WatermarkImage({
+        CoverImage({
           imageUrl: item.imageUrl,
           title: '',
           watermarkText: this.priceText(item).length > 0 ? this.priceText(item) : '互成一家',
@@ -122,6 +123,7 @@ struct Service {
 
   build() {
     Column() {
+      PageHeader({ title: '服务' })
       this.Header()
       Scroll() {
         Row() {

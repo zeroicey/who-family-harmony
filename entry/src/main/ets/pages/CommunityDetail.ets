@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { AppIcon } from '../components/AppIcon';
-import { WatermarkImage } from '../components/WatermarkImage';
+import { CoverImage } from '../components/common/CoverImage';
 import { CommunityPost } from '../models/CommunityPost';
 import { RouteParams } from '../models/MiniProgramModels';
 import { CommunityApi, PostComment } from '../api/CommunityApi';
@@ -10,6 +10,7 @@ import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct CommunityDetail {
@@ -121,7 +122,7 @@ struct CommunityDetail {
         .width('100%')
         .margin({ top: 10 })
       if (this.post.imageUrl.length > 0) {
-        WatermarkImage({
+        CoverImage({
           imageUrl: this.post.imageUrl,
           title: '',
           watermarkText: '互成一家 · 社区',
@@ -227,6 +228,7 @@ struct CommunityDetail {
 
   build() {
     Column() {
+      PageHeader({ title: '动态详情' })
       Scroll() {
         Column() {
           this.PostCard()

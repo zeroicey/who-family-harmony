@@ -1,0 +1,234 @@
+# 鸿蒙版对齐任务清单
+
+> 目标：在不重写架构的前提下，把 HarmonyOS 版逐页对齐微信小程序版 `../who_family_wechat`。
+> 本文件是**唯一施工清单**。编码 agent 按 ID 顺序执行并更新状态；验收 agent 依据 `docs/acceptance.md` 独立验收。
+>
+> 最后更新：2026-11-11
+> 基线提交：`688905d`（docs 未提交前）
+> 构建基线：`assembleHap` 通过；CodeLinter 0 error / 14 warning
+
+## 状态与约定
+
+| 标记 | 含义 |
+| --- | --- |
+| `TODO` | 未开始 |
+| `WIP` | 进行中（同时只能有一个编码 agent） |
+| `BLOCKED` | 等待依赖或决策 |
+| `DONE` | 完成并通过自测 |
+| `DEFERRED` | 本轮不做，已登记为允许偏差 |
+
+完成一个任务时，在对应行末追加：`DONE 2026-11-xx @agent`，并在 `## 变更记录` 写一行说明。
+
+---
+
+## 0. 范围与已确认决策
+
+- **登录**：不做。继续使用 `env.ets` 的 `DEMO_TOKEN`，启动直接进 `Index`。`pages/login.vue` 不复刻，登记为允许偏差。
+- **对齐标准**：结构、文案、配色、交互、状态尽量一致；像素级不强制。
+- **微信专属**：文件/图片选择、系统分享等好做的用鸿蒙能力替代；微信好友分享/朋友圈/订阅消息不做。
+- **AI**：客户端直连 DashScope，沿用 `env.ets` 的 key；需要流式。
+- **支付**：不做。
+- **鸿蒙额外页面全部保留并做好**：`Service`（服务聚合）、`ServiceExpress`（快递代取）、`ServiceSuccess`（通用成功）、`MeSetting`（设置）不做删除，按独立功能补齐并纳入验收。
+
+## 页面映射
+
+| # | 小程序（参考） | 鸿蒙（目标） | 备注 |
+| --- | --- | --- | --- |
+| 1 | `pages/home/index.vue` + `components/home/*` | `pages/Index.ets` | 5 Tab 宿主 |
+| 2 | `pages/community/index.vue` + `components/community/*` | `pages/Community.ets` | Tab |
+| 3 | `pages/community/detail.vue` + `components/community/detail/*` | `pages/CommunityDetail.ets` | |
+| 4 | `pages/community/publish.vue` | `pages/CommunityPublish.ets` | 含选图与 AI 润色 |
+| 5 | `pages/helper/index.vue` + `components/helper/*` | `pages/Helper.ets` | Tab，需流式 + Markdown |
+| 6 | `pages/knowledge/index.vue` | `pages/Knowledge.ets` | Tab |
+| 7 | `pages/knowledge/article.vue` + `FloatWindow` | `pages/KnowledgeArticle.ets` | 正文 + AI 解读 |
+| 8 | `pages/recruit/index.vue` + `CategoryTabs`/`RecruitCard` | `pages/JobList.ets` | |
+| 9 | `pages/recruit/detail.vue` | `pages/JobDetail.ets` | |
+| 10 | `pages/me/index.vue` + `components/me/*` | `pages/Mine.ets` | Tab |
+| 11 | `pages/me/profile/index.vue` | `pages/MeProfile.ets` | 头像上传 |
+| 12 | `pages/me/address/index.vue` | `pages/MeAddress.ets` | |
+| 13 | `pages/me/address/create.vue` | `pages/MeAddressCreate.ets` | |
+| 14 | `pages/me/address/update.vue` | `pages/MeAddressUpdate.ets` | |
+| 15 | `pages/me/order/index.vue` | `pages/MeOrder.ets` | |
+| 16 | `pages/me/feedback.vue` | `pages/MeFeedback.ets` | 选图 + FAQ |
+| 17 | `pages/me/about.vue` | `pages/MeAbout.ets` | |
+| 18 | `pages/service/personinfo/personinfo.vue` | `pages/ServicePersonInfo.ets` | 静态模拟 + 天气 |
+| 19 | `pages/service/schedule.vue` | `pages/ServiceSchedule.ets` | 含 AI 分析 |
+| 20 | `pages/service/grade.vue` | `pages/ServiceGrade.ets` | 含 AI 分析 |
+| 21 | `pages/service/print/index.vue` + `components/service/print/*` | `pages/ServicePrint.ets` | 文件选择上传 |
+| 22 | `pages/service/print/success.vue` | `pages/ServicePrintSuccess.ets` | |
+| 23 | `pages/focus/index.vue` | `pages/FocusPage.ets` | |
+| 24 | `pages/task/index.vue` | `pages/TaskPage.ets` | |
+| 25 | `pages/agreement/user.vue` | `pages/AgreementUser.ets` | 全文 |
+| 26 | `pages/agreement/privacy.vue` | `pages/AgreementPrivacy.ets` | 全文 |
+| 27 | `pages/login.vue` | 无 | DEFERRED（demo token） |
+| — | （未注册）`service/express.vue` | `pages/ServiceExpress.ets` | 保留并完善（下单/地址/价格/成功） |
+| — | （未注册）`service/success.vue` | `pages/ServiceSuccess.ets` | 保留并完善（通用成功页） |
+| — | （未注册）`me/setting/` | `pages/MeSetting.ets` | 保留并完善（缓存/环境/版本） |
+| — | 无 | `pages/Service.ets` | 保留并完善（服务聚合入口） |
+
+---
+
+## 阶段 0：基线
+
+| ID | 任务 | 状态 |
+| --- | --- | --- |
+| P0.1 | 记录构建/检查基线：执行 `assembleHap` 与 CodeLinter，把命令、结果、环境写入 `docs/baseline.md`；截图当前 30 个页面（能跑设备时） | DONE 2026-11-11 @agent |
+| P0.2 | 通读参考实现：为每个页面记录区块顺序、文案、交互、接口、空态（可直接补在对应任务下） | DONE 2026-11-11 @agent |
+| P0.3 | 建立截图目录 `docs/acceptance/screenshots/`，约定命名 `<page>-<state>.png` | DONE 2026-11-11 @agent |
+
+---
+
+## 阶段 1：基础能力（必须先于页面施工）
+
+| ID | 任务 | 关键实现 | 主要文件 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| F1 | 主题与设计 token | 颜色（含 `#07c160`/`#007aff`/背景灰）、字号层级、间距、圆角、阴影；提供 ArkUI 可直接用的常量/方法 | 新建 `ets/theme/Theme.ets` | 新页面不再散落魔法值；至少 3 个现有组件改用 token | DONE 2026-11-11 @agent |
+| F2 | 基础组件库 | `PageHeader`（返回+标题+右侧）、`SectionCard`、`Tag`、`PrimaryButton`、`EmptyState`（升级）、`LoadingView`（升级）、`Skeleton`、`BottomSheet`、`ConfirmDialog`、`BackToTop` | `ets/components/common/*` | 组件可在任意页面复用；状态齐全（默认/按压/禁用） | DONE 2026-11-11 @agent |
+| F3 | 网络图片替换 | 用 `Image(url)` 替代 Web 渲染；本地占位图、加载失败回退、圆角/裁剪、列表复用 | 重写 `components/RemoteImage.ets`，删除/改造 `WatermarkImage.ets` | 所有网络图不再创建 Web 引擎；列表滚动无明显卡顿；无 SSL 自动放行 | DONE 2026-11-11 @agent |
+| F4 | 网络层增强 | 二进制 `PUT` 上传、流式响应（SSE/chunk）、无 token/401 统一处理、可选重试；保持现有信封解包 | `api/HttpClient.ets`、`api/ApiConfig.ets` | 单测/手工验证 JSON、二进制、流式三类请求 | DONE 2026-11-11 @agent |
+| F5 | 媒体选择与上传 | `PhotoViewPicker` 选图（头像/社区/反馈）、`DocumentViewPicker` 选文件（打印）、读文件为 base64/ArrayBuffer、大小/类型校验 | 新建 `services/UploadService.ets` | 三类场景均能选到文件并产出可上传数据 | DONE 2026-11-11 @agent |
+| F6 | Markdown 渲染 | 标题、列表、粗斜体、行内/块代码、引用、链接、分割线；不引入第三方依赖 | 新建 `components/common/MarkdownView.ets` | 助手回复与知识正文可正确渲染代码块和列表 | DONE 2026-11-11 @agent |
+| F7 | AI 服务层 | DashScope 流式对话、取消、错误重试；成绩/课表分析、发布润色、知识解读共用 | 新建 `services/AiService.ets`；改造 `api/HelperApi.ets` | 流式逐字输出；断网有错误态；key 不落日志 | DONE 2026-11-11 @agent |
+| F8 | 内容检查接口 | `/check/text`、`/check/img` 封装；上传前先检查，失败阻断并提示 | 新建 `api/CheckApi.ets` | 发布/资料保存前均走检查（与小程序一致） | DONE 2026-11-11 @agent |
+| F9 | 列表模式 | 下拉刷新、分页（`lastPostId`/`lastCommentId`）、加载更多、到底提示、回到顶部 | 新建 `services/PagedList.ets` 或页面内统一模式 | 社区/我的动态/评论三处复用同一模式 | DONE 2026-11-11 @agent |
+| F10 | 导航栏统一 | 所有子页加 `PageHeader`，标题按小程序 `pages.json`；安全区/状态栏适配 | 全部子页 | 每个子页都能点返回；标题与小程序一致 | DONE 2026-11-11 @agent |
+| F11 | Mock 拆分与内容迁移 | `MockData.ets` 按域拆分到 `ets/mock/`；迁移知识文章、校园通知、服务卡、协议全文 | `ets/utils/MockData.ets` → `ets/mock/*` | 页面引用不变或平滑迁移；内容与参考一致 | DONE 2026-11-11 @agent |
+
+---
+
+## 阶段 2：页面对齐
+
+### 2.1 首页 / 社区 / 招聘
+
+| ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.1 | 首页 `Index.ets` | 轮播/服务/通知写死（与小程序一致）；招聘卡、问候语、日期、布局细节需逐项比对 | 对齐 `HomeHeader`、`ServiceRecommend`、`CampusNotifications`、`RecruitmentCard` 的区块顺序/文案/尺寸；服务入口跳转正确；招聘卡跳详情 | 与小程序首页逐区块对照无缺项；滚动/点击正常 | TODO |
+| P2.2 | 社区列表 `Community.ets` | 缺分类 Tab、动态类型卡片（好物/跑腿/二手/评分）、图片九宫格、分页、下拉刷新、回到顶部；点赞为局部更新 | 对齐 `PostCard`/`ErrandCard`/`Rating`/`SecondHand`；实现 `postTypes`、`lastPostId` 分页、下拉刷新、乐观点赞 | 四类卡片可展示；分页/刷新/点赞与小程序一致 | TODO |
+| P2.3 | 社区详情 `CommunityDetail.ets` | 缺作者信息完整布局、图片网格、统计栏、二级回复、评论点赞/删除、分页 | 对齐 `components/community/detail/*`；实现一级/二级评论、回复、删除、加载更多 | 评论两级完整；删除/回复可用；图片网格正确 | TODO |
+| P2.4 | 发布动态 `CommunityPublish.ets` | 分类是手输文本；无选图；AI 润色是假 Toast；无内容检查 | 分类选择器；最多 3/9 张图（以小程序为准）；`prepare-post → 上传 → finalize-post`；AI 流式润色；文本/图片检查 | 纯文字与带图发布均成功；润色可用；检查失败有提示 | TODO |
+| P2.5 | 招聘列表 `JobList.ets` | 缺分类 Tab、筛选/搜索、卡片信息密度 | 对齐 `CategoryTabs` + `RecruitCard`；分类数据来自 `JobApi.types`（如后端有） | 分类切换正确；卡片信息与小程序一致 | TODO |
+| P2.6 | 招聘详情 `JobDetail.ets` | 基础信息/收藏已有；投递、公司信息、福利标签、底部操作栏需比对 | 对齐 `pages/recruit/detail.vue` 全区块；投递状态与接口一致 | 所有区块齐全；投递/收藏状态可持久 | TODO |
+
+### 2.2 助手 / 知识
+
+| ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.7 | 助手 `Helper.ets` | 非流式、无 Markdown、无预设问题动效/会话管理/复制/重试 | 基于 F7 改流式；`MarkdownView`；对齐 `ChatInput`/`PresetQuestions`/`AIMessage`；消息缓存与清空 | 逐字输出；代码块正确；预设问题可点；历史可恢复 | TODO |
+| P2.8 | 知识列表 `Knowledge.ets` | Mock 数据缩水；分类/推荐/搜索/排序可能缺失 | 迁移 `static/mock/knowledge/index.js`；对齐卡片、分类 Tab、推荐标识 | 分类/推荐/搜索与小程序一致；文章可进入 | TODO |
+| P2.9 | 知识详情 `KnowledgeArticle.ets` | 正文仅 3 句占位；AI 解读为假加载；无 Markdown/TOC/收藏 | 迁移 `dynamic-programming.js` 等正文；`MarkdownView`；AI 解读走 F7 流式；点赞/收藏 | 正文完整可滚动；AI 解读真实输出；收藏状态正确 | TODO |
+
+### 2.3 我的
+
+| ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.10 | 我的 `Mine.ets` | 主体已有；缺头像上传入口、消息入口行为、我的动态卡片样式、下拉刷新/回到顶部 | 对齐 `UserProfile`/`QuickNav`/`CoreFunctions`/`MyPostCard`；我的动态分页 | 四个区块与小程序一致；动态可进详情；刷新可用 | TODO |
+| P2.11 | 个人资料 `MeProfile.ets` | 无头像选择/上传；检查接口未接 | 基于 F5 选图 + `/check/img` + `PUT /user/avatar`；文本走 `/check/text`；字段/校验对齐 | 头像可改并刷新全局；非法内容被拦截 | TODO |
+| P2.12 | 地址三页 | 列表/新增/修改已有；默认地址、删除确认、表单校验需比对 | 对齐 `me/address/*`；空态/错误态 | 增删改查/默认切换完整 | TODO |
+| P2.13 | 订单 `MeOrder.ets` | 状态筛选与卡片细节需比对 | 对齐小程序订单状态、空态、跳转打印 | 筛选正确；空态/跳转正常 | TODO |
+| P2.14 | 反馈 `MeFeedback.ets` | 无选图、FAQ、字数统计、联系方式校验 | 对齐 `me/feedback.vue`；提交行为与小程序一致（本地模拟也是允许的） | UI 完全一致；提交反馈符合参考行为 | TODO |
+| P2.15 | 关于 `MeAbout.ets` | 内容/布局需比对 | 对齐 `me/about.vue` 全部条目与链接 | 文案/链接一致 | TODO |
+| P2.16 | 设置 `MeSetting.ets` | 小程序未注册（死代码），鸿蒙版保留 | 做完整设置页：缓存清理（含确认）、生产/本地后端切换并即时生效、当前环境展示、版本信息、关于/协议入口、演示会话重置（不清 token，只清缓存） | 每个开关/按钮有真实效果；切换环境后接口立即走新地址；无死链 | TODO |
+
+### 2.4 校园服务
+
+| ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.17 | 人流监测 `ServicePersonInfo.ets` | 静态简化：缺温度/天气图标、实时/预测双栏细节、5 槽位、建议区、刷新节奏 | 迁移 `academic-data.json` 与小程序算法/文案；对齐 `personinfo.vue` 全区块；图表用 `DataPanel`/`Gauge`/`Canvas`，实现前调用 `dataviz` skill | 三类地点切换正确；实时/预测数据与参考逻辑一致；天气区完整；图表配色/结构一致 | TODO |
+| P2.18 | 课表 `ServiceSchedule.ets` | 查询通；缺 AI 分析、学期/周次细节、课程详情弹层、空态 | 对齐 `schedule.vue`；接入 F7 AI 分析；保存学号/密码方式与小程序一致 | 查询/切换周次/详情/AI 分析均可用 | TODO |
+| P2.19 | 成绩 `ServiceGrade.ets` | 查询通；缺 AI 分析、统计卡、学期筛选、详情 | 对齐 `grade.vue`；接入 F7 AI 分析 | 统计/GPA/筛选/AI 分析均可用 | TODO |
+| P2.20 | 打印 `ServicePrint.ets` | 文件名手输；无文件选择/预览/大小；价格与表单细节不足 | 基于 F5 选文件为 base64；对齐 `PrintForm`/`PriceCard`/`ServiceAreaNotice`/`ServiceIntroCard`；份数、地址、校验 | 选文件→下单成功；成功页跳转正确 | TODO |
+| P2.21 | 打印成功 `ServicePrintSuccess.ets` | 细节比对 | 对齐 `print/success.vue` | 订单信息/按钮行为一致 | TODO |
+| P2.22 | 专注 `FocusPage.ets` | 计时/今日分钟已有；缺 <10 分钟拒绝、放弃确认、完成态/文案 | 对齐 `focus/index.vue` 与 `store/modules/focus.js` | 开始/放弃/结束/不足 10 分钟提示与参考一致 | TODO |
+| P2.23 | 任务 `TaskPage.ets` | 基础 CRUD；缺筛选、详情弹层、状态切换细节、空态 | 对齐 `task/index.vue` 与 `store/modules/task.js` | 增删改查/完成切换/筛选/空态一致 | TODO |
+| P2.24 | 快递代取 `ServiceExpress.ets` | 小程序未注册（死代码），鸿蒙版保留但功能简单 | 对齐 `service/express.vue` 的视觉与内容，并补完整流程：收货地址选择（复用地址簿）、快递大小/重量、价格计算、备注、立即下单、本地订单记录、成功页；无后端接口时用本地订单 + 明确演示提示 | 从入口到下单成功全流程可走通；地址/价格/校验正确；返回不丢状态 | TODO |
+
+### 2.5 鸿蒙增强页面（保留并做好）
+
+| ID | 页面 | 目标 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.27 | 服务聚合 `Service.ets` | 让"更多服务"成为真实入口 | 服务分组（校园查询 / 生活服务 / 打印快递），卡片含图标、标题、描述、状态；跳转人流/课表/成绩/打印/快递；首页"更多服务"指向此页 | 所有卡片可点且目标正确；首页入口打通；无空链接 | TODO |
+| P2.28 | 通用成功 `ServiceSuccess.ets` | 承载快递/其他业务成功态 | 按 `type` 展示标题、订单号、说明、主次按钮；与打印成功页风格统一；返回首页/查看订单 | 快递下单后正确跳转并展示对应文案；按钮可用 | TODO |
+| P2.29 | 额外页面入口与去死链 | 四个增强页面都有明确入口 | `Mine`/`Service`/首页增加设置、服务聚合、快递入口；路由可达；不出现点了没反应的按钮 | 每个页面至少一条可达路径；全量路由无死链 | TODO |
+
+### 2.6 协议
+
+| ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| P2.25 | 用户协议 `AgreementUser.ets` | 被压缩为 6 段 | 从 `pages/agreement/user.vue` 逐段迁移全文，保留日期 | 正文与参考逐字一致 | TODO |
+| P2.26 | 隐私政策 `AgreementPrivacy.ets` | 被压缩 | 同上，迁移 `privacy.vue` 全文 | 正文与参考逐字一致 | TODO |
+
+---
+
+## 阶段 3：内容与数据
+
+| ID | 任务 | 实现要点 | 完成标准 | 状态 |
+| --- | --- | --- | --- | --- |
+| P3.1 | 知识内容迁移 | `static/mock/knowledge/index.js`、`dynamic-programming.js`、`academic-data.json` → 鸿蒙静态数据 | 文章/分类/正文/人流静态数据与参考一致 | TODO |
+| P3.2 | 首页与服务卡内容 | 轮播、服务卡、校园通知、评价、打印价格文案逐项对齐 | 文案/图片 URL/数字一致 | TODO |
+| P3.3 | 全量文案审校 | 逐页对比中文文案、标点、emoji、按钮文字 | 无遗漏/错别字；差异已登记 | TODO |
+
+---
+
+## 阶段 4：收尾与回归
+
+| ID | 任务 | 完成标准 | 状态 |
+| --- | --- | --- | --- |
+| P4.1 | 全页面走查 | 30 个路由均可进入/返回；无白屏/崩溃 | TODO |
+| P4.2 | 异常路径 | 断网、空 token、401、空列表、超长文本均有降级/空态 | TODO |
+| P4.3 | 性能 | 列表滚动流畅；无每项 Web 引擎；首屏无明显卡顿 | TODO |
+| P4.4 | 静态检查 | CodeLinter 0 error；warning 逐条评估（不强制清零） | TODO |
+| P4.5 | 文档更新 | README/AGENTS/本轮差异登记同步 | TODO |
+
+---
+
+## 阶段 5：独立验收
+
+| ID | 任务 | 完成标准 | 状态 |
+| --- | --- | --- | --- |
+| P5.1 | 验收 agent 执行 `docs/acceptance.md` | 输出 `docs/acceptance-report.md`；Blocker/Major 为 0 | TODO |
+
+---
+
+## 推荐施工顺序
+
+```text
+P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F11
+   → P2.1 → P2.2 → P2.3 → P2.4 → P2.5 → P2.6
+   → P2.7 → P2.8 → P2.9
+   → P2.10 → P2.11 → P2.12 → P2.13 → P2.14 → P2.15 → P2.16
+   → P2.17 → P2.18 → P2.19 → P2.20 → P2.21 → P2.22 → P2.23 → P2.24
+   → P2.27 → P2.28 → P2.29
+   → P2.25 → P2.26
+   → P3 → P4 → P5
+```
+
+依赖说明：
+
+- F3（替换 Web 图片）必须最先做，否则所有列表页验收都不可靠。
+- F5/F8 是 P2.4、P2.11、P2.14、P2.20 的前置。
+- F6/F7 是 P2.7、P2.9、P2.18、P2.19 的前置。
+- F10 可与页面任务并行，但每个页面完成前必须有可用返回。
+- P3 可在对应页面完成后立即进行，不必等全部页面。
+
+---
+
+## 变更记录
+
+| 日期 | 任务 | 说明 |
+| --- | --- | --- |
+| 2026-11-11 | — | 初始版本：完成架构评审、页面映射、任务拆分 |
+| 2026-11-11 | P2.16 / P2.24 / P2.27–P2.29 | 决策：`Service` / `ServiceExpress` / `ServiceSuccess` / `MeSetting` 全部保留并完善，纳入验收 |
+| 2026-11-11 | 工具链 | 新增 `scripts/` 预检、构建、检查、截图脚本；新增 dev/accept 两个项目级 skill |
+| 2026-11-11 | P0.1–P0.3 | 新增 `docs/baseline.md`、`docs/reference-inventory.md`；截图约定 `<page>-<state>.png`；修复截图脚本 `.jpeg` 后缀问题 |
+| 2026-11-11 | F1 | 新增 `theme/Theme.ets`（颜色/字号/间距/圆角/阴影）；`EmptyState`、`LoadingView`、`ServiceCard`、`MiniProgramCards` 改用 token |
+| 2026-11-11 | F3 | 删除 `RemoteImage`/`WatermarkImage`，改为 `common/NetImage.ets`、`common/CoverImage.ets`（ArkUI Image、占位/失败回退/圆角裁剪）；预检 Web 图片 0 |
+| 2026-11-11 | F2 | 新增 `components/common/`：PageHeader、SectionCard、Tag、PrimaryButton、EmptyState、LoadingView、Skeleton、BottomSheet、ConfirmDialog、BackToTop |
+| 2026-11-11 | F4 | `HttpClient` 增加二进制 PUT、SSE 流式、401/缺 token 统一处理、GET 重试 |
+| 2026-11-11 | F5 | 新增 `services/UploadService.ets`（PhotoViewPicker/DocumentViewPicker/fileIo/base64/大小类型校验） |
+| 2026-11-11 | F6 | 新增 `components/common/MarkdownView.ets`（标题/列表/粗斜体/代码/引用/链接/分割线，自研解析）；知识正文与助手消息接入 |
+| 2026-11-11 | F7 | 新增 `services/AiService.ets`（DashScope 流式/取消/空响应重试）；`HelperApi` 增加流式接口；助手页改用流式 |
+| 2026-11-11 | F8 | 新增 `api/CheckApi.ets`（/check/text、/check/img，失败阻断） |
+| 2026-11-11 | F9 | 新增 `services/PagedList.ets`（刷新/加载更多/到底文案/回到顶部） |
+| 2026-11-11 | F10 | 全部 25 个子页加 `PageHeader` 并按 `pages.json` 对齐标题；Scroll/Stack 根页面完成包裹 |
+| 2026-11-11 | F11 | Mock 按域拆分到 `ets/mock/`，迁移知识 28 篇+正文、校园动态 7 条、服务卡 5 张、协议全文；`MockData` 保留门面 |
+| 2026-11-11 | 工具链 | 配置 cormorant MCP；新增 `docs/tech-notes.md` 与 `/harmony-api-research` skill；P2.17 图表接入 dataviz |

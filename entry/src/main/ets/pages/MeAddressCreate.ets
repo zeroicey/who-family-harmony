@@ -8,6 +8,7 @@ import { MockData } from '../utils/MockData';
 import { DateUtil } from '../utils/DateUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAddressCreate {
@@ -117,6 +118,7 @@ struct MeAddressCreate {
 
   build() {
     Column() {
+      PageHeader({ title: '新增地址' })
       Scroll() {
         Column() {
           this.FormInput('地址别名', '如：家、学校', this.item.area, 'area')

@@ -1,3 +1,5 @@
+import { AppColors, AppFont, AppSpace } from '../theme/Theme';
+
 @Component
 export struct LoadingView {
   @Prop text: string = '正在加载';
@@ -7,14 +9,14 @@ export struct LoadingView {
       LoadingProgress()
         .width(22)
         .height(22)
-        .color('#0A7D6C')
+        .color(AppColors.primary)
       Text(this.text)
-        .fontSize(13)
-        .fontColor('#667085')
-        .margin({ left: 8 })
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.textSecondary)
+        .margin({ left: AppSpace.sm })
     }
     .width('100%')
     .justifyContent(FlexAlign.Center)
-    .padding(18)
+    .padding(AppSpace.lg)
   }
 }

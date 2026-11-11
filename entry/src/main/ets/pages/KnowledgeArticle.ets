@@ -5,6 +5,9 @@ import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
+import { MarkdownView } from '../components/common/MarkdownView';
+import { KnowledgeMock } from '../mock/KnowledgeMock';
 @Entry
 @Component
 struct KnowledgeArticlePage {
@@ -165,14 +168,8 @@ struct KnowledgeArticlePage {
   @Builder
   ArticleContent() {
     Column() {
-      ForEach(this.article.content, (paragraph: string) => {
-        Text(paragraph)
-          .fontSize(15)
-          .fontColor('#333333')
-          .lineHeight(25)
-          .width('100%')
-          .margin({ bottom: 14 })
-      }, (paragraph: string) => paragraph)
+      MarkdownView({ markdown: KnowledgeMock.articleMarkdown(this.article) })
+        .width('100%')
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -262,9 +259,11 @@ struct KnowledgeArticlePage {
 
   build() {
     Stack({ alignContent: Alignment.BottomEnd }) {
-      Scroll() {
-        Column() {
-          this.ArticleHeader()
+      Column() {
+        PageHeader({ title: '知识详情' })
+        Scroll() {
+          Column() {
+            this.ArticleHeader()
           this.TagsSection()
           Divider()
             .height(8)
@@ -273,6 +272,9 @@ struct KnowledgeArticlePage {
         }
         .width('100%')
         .padding({ bottom: 92 })
+        }
+        .width('100%')
+        .layoutWeight(1)
       }
       .width('100%')
       .height('100%')

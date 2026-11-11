@@ -7,6 +7,7 @@ import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeOrder {
@@ -243,6 +244,7 @@ struct MeOrder {
 
   build() {
     Column() {
+      PageHeader({ title: '我的订单' })
       this.FilterTabs()
       Scroll() {
         Column() {

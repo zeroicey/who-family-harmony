@@ -4,9 +4,10 @@ import { Job } from '../models/Job';
 import { PrintPrice } from '../models/MiniProgramModels';
 import { UserProfile } from '../models/UserProfile';
 import { ServiceItem } from '../utils/MockData';
-import { WatermarkImage } from './WatermarkImage';
+import { CoverImage } from './common/CoverImage';
 import { ServiceCard } from './ServiceCard';
 import { JobCard } from './JobCard';
+import { AppColors, AppFont, AppRadius, AppSpace } from '../theme/Theme';
 
 @Component
 export struct HomeHeaderCard {
@@ -18,24 +19,24 @@ export struct HomeHeaderCard {
     Column() {
       Row() {
         Text(`你好，${this.username}`)
-          .fontSize(20)
+          .fontSize(AppFont.title)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#182431')
+          .fontColor(AppColors.textPrimary)
           .layoutWeight(1)
         Text(this.dateText)
-          .fontSize(12)
-          .fontColor('#667085')
-          .backgroundColor('#F2F4F7')
-          .borderRadius(14)
+          .fontSize(AppFont.sm)
+          .fontColor(AppColors.textSecondary)
+          .backgroundColor(AppColors.bgPage)
+          .borderRadius(AppRadius.pill)
           .padding({ left: 10, right: 10, top: 5, bottom: 5 })
       }
       .width('100%')
-      WatermarkImage({
+      CoverImage({
         imageUrl: this.banner.imageUrl,
         title: this.banner.title,
         watermarkText: '互成一家',
         imageHeight: 150,
-        imageRadius: 16
+        imageRadius: AppRadius.xl
       })
         .margin({ top: 14 })
     }
@@ -50,15 +51,15 @@ export struct ServiceRecommendCard {
 
   build() {
     Column() {
-      WatermarkImage({
+      CoverImage({
         imageUrl: this.item.imageUrl,
         title: this.item.title,
         watermarkText: '互成一家 · 服务',
         imageHeight: 112,
-        imageRadius: 12
+        imageRadius: AppRadius.lg
       })
       ServiceCard({ title: this.item.title, summary: this.item.summary, iconText: this.item.iconText })
-        .margin({ top: 8 })
+        .margin({ top: AppSpace.sm })
     }
     .width('100%')
   }
@@ -72,46 +73,46 @@ export struct CommunityPostCard {
     Column() {
       Row() {
         Text(this.post.author)
-          .fontSize(14)
+          .fontSize(AppFont.base)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#182431')
+          .fontColor(AppColors.textPrimary)
           .layoutWeight(1)
         Text(this.post.publishTime)
-          .fontSize(12)
-          .fontColor('#98A2B3')
+          .fontSize(AppFont.sm)
+          .fontColor(AppColors.textTertiary)
       }
       Text(this.post.title)
-        .fontSize(17)
+        .fontSize(AppFont.lg)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#182431')
+        .fontColor(AppColors.textPrimary)
         .width('100%')
-        .margin({ top: 10 })
+        .margin({ top: AppSpace.md })
       Text(this.post.content)
-        .fontSize(13)
-        .fontColor('#667085')
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.textSecondary)
         .lineHeight(21)
         .width('100%')
-        .margin({ top: 8 })
+        .margin({ top: AppSpace.sm })
       if (this.post.imageUrl.length > 0) {
-        WatermarkImage({
+        CoverImage({
           imageUrl: this.post.imageUrl,
           title: this.post.title,
           watermarkText: '互成一家 · 社区',
           imageHeight: 120,
-          imageRadius: 12
+          imageRadius: AppRadius.lg
         })
-          .margin({ top: 10 })
+          .margin({ top: AppSpace.md })
       }
       Text(`点赞 ${this.post.likeCount}`)
-        .fontSize(12)
-        .fontColor('#3563E9')
-        .margin({ top: 10 })
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.brandBlue)
+        .margin({ top: AppSpace.md })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
     .padding(14)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(14)
+    .backgroundColor(AppColors.bgCard)
+    .borderRadius(AppRadius.lg)
   }
 }
 
@@ -131,22 +132,22 @@ export struct PrintPriceCard {
   build() {
     Column() {
       Text(this.price.name)
-        .fontSize(13)
-        .fontColor('#667085')
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.textSecondary)
       Text(`¥${this.price.price}`)
         .fontSize(22)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#3563E9')
+        .fontColor(AppColors.brandBlue)
         .margin({ top: 6 })
       Text(this.price.unit)
-        .fontSize(11)
-        .fontColor('#98A2B3')
+        .fontSize(AppFont.xs)
+        .fontColor(AppColors.textTertiary)
         .margin({ top: 2 })
     }
     .height(94)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(14)
+    .backgroundColor(AppColors.bgCard)
+    .borderRadius(AppRadius.lg)
   }
 }
 
@@ -159,17 +160,17 @@ export struct UserProfileCard {
       Text(this.user.nickname)
         .fontSize(22)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#182431')
+        .fontColor(AppColors.textPrimary)
       Text(`${this.user.school} · ${this.user.major} · ${this.user.grade}`)
-        .fontSize(13)
-        .fontColor('#667085')
+        .fontSize(AppFont.sm)
+        .fontColor(AppColors.textSecondary)
         .lineHeight(20)
-        .margin({ top: 8 })
+        .margin({ top: AppSpace.sm })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
-    .padding(16)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(16)
+    .padding(AppSpace.lg)
+    .backgroundColor(AppColors.bgCard)
+    .borderRadius(AppRadius.xl)
   }
 }
