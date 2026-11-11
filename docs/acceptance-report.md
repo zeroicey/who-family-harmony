@@ -342,3 +342,75 @@ M5 已关闭：社区、详情、我的三处下拉均出现刷新反馈、实�
 **不通过：Blocker 0 / Major 1 / Minor 1。**
 
 P2.1 首页核心链路 PASS；P2.2 社区列表核心链路 PASS（到底文案 Minor）；P2.3 详情核心链路 PASS（评论分页 NOT TESTED）；P2.4 发布页因分类未反映成功接口且可导致 `prepare-post` 500，判 FAIL。S3 证书续签后真实图片加载 PASS，不再是环境阻塞。AI 真实流式、图片选中后上传、评论分页仍为 NOT TESTED，分别受有效 key、空相册、无 ≥10 条评论数据限制。
+
+## 页面验收复验（P2.1–P2.4，18da44a）
+
+- 复验日期：2026-11-11
+- 分支：`feat/harmony-parity`
+- 冻结点：`18da44ade2846b4ce43062e192dfcb1ec7edf676`
+- 冻结状态：开始复验时 `git status --short` 为空；复验期间未修改 `entry/`、构建配置、`docs/parity-plan.md` 或 `env.ets`，仅写入本报告与 `docs/acceptance/screenshots/`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，型号 `emulator`，API 24
+- 后端：生产 `https://api.hcyj.xyz`；演示 token 有效，真实用户、社区分页、点赞、发布链路均返回成功
+- 安装包：`entry-default-unsigned.hap`，SHA-256 `2f8b6ac9e100b9b52fc28c4c0be49932d8120afe0e557345fd949b5bb2f05e36`，覆盖安装成功并冷启动验证
+- 参考实现：`../who_family_wechat`，HEAD `47896e31150215b31e751e1f04427f7a56b53f99`，工作区干净
+- 复验范围：仅上轮遗留的 D-P2-01、D-P2-02，以及受影响的 P2.2 四 Tab/点赞/刷新和 P2.4 分类/校验/返回回归
+
+### 门槛
+
+| 项 | 结果 | 证据 / 备注 |
+| --- | --- | --- |
+| 冻结点与工作区 | PASS | `git rev-parse HEAD` 为 `18da44ade2846b4ce43062e192dfcb1ec7edf676`；开始前 `git status --short` 为空 |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Defects: 19; Errors: 0; Warns: 19; Suggestions: 0` |
+| 路由与图片组件 | PASS | `preflight`：注册路由 30 个，Web 图片引用为 0 |
+| 安装与启动 | PASS | `hdc install -r` 成功；冷启动 `EntryAbility` 前台运行，无崩溃或白屏 |
+| 参考实现完整性 | PASS | `../who_family_wechat` 工作区干净，未修改 |
+
+### 定点复验
+
+| ID | 结果 | 证据摘要 |
+| --- | --- | --- |
+| D-P2-01 发布分类回退 | **PASS（已关闭）** | `postTypes` 200 后页面显示后端四个分类；逐项点击选中态正确；选择“日常分享”纯文字发布成功；新建动态位列社区首位 |
+| D-P2-02 社区末页提示 | **FAIL（未关闭）** | 冷启动连续翻至最后一页，`lastPostId=26` 返回 14 条后底部仍显示“上拉加载更多”；切 Tab 触发重渲染后才变为“没有更多数据了” |
+
+#### D-P2-01（PASS）
+
+| 检查项 | 结果 | 运行态证据 |
+| --- | --- | --- |
+| 后端分类替换旧兜底 | PASS | `GET /community/postTypes` HTTP 200；页面显示“好物推荐 / 日常分享 / 求助问答 / 活动召集”，旧“跑腿 / 二手 / 评分”均不再出现。见 [`accept-p2-fix-publish-categories.png`](acceptance/screenshots/accept-p2-fix-publish-categories.png) |
+| 加载期间禁止误选旧分类 | PASS（源码 + 初始态） | 初始 `postTypes=[]`、`selectedType=''`、`typesLoading=true`，此时仅渲染“分类加载中...”，不渲染可点击分类；分类点击仅在加载完成后出现。分类接口本次约 21ms 返回，布局抓取时已加载完成，因此未截到加载窗口。相关实现：`entry/src/main/ets/pages/CommunityPublish.ets:28-30`、`:54-75`、`:232-245`、`:327-345` |
+| 逐个分类选中态 | PASS | 依次点击四个分类，均只有当前项背景为 `#FF00CC6A`，其余为 `#FFF4F6F8`；最终选中“日常分享”。见 [`accept-p2-fix-publish-filled.png`](acceptance/screenshots/accept-p2-fix-publish-filled.png) |
+| 有效分类纯文字发布 | PASS | `POST /check/text` 200 → `POST /community/prepare-post` 200（`type=日常分享`）→ `POST /community/finalize-post` 200（`id=197`）；未再出现 500 |
+| 发布后社区首位刷新 | PASS | 返回社区后自动重新拉取第一页，标题正文为本次测试内容的动态位于首位。见 [`accept-p2-fix-publish-after2.png`](acceptance/screenshots/accept-p2-fix-publish-after2.png) |
+| AI 错误面板 | PASS（仅错误路径） | 无可用 key 时显示“AI 服务暂不可用：AI 服务未返回内容，请稍后重试”；标题与正文保留。真实润色输出仍按允许偏差 NOT TESTED。见 [`accept-p2-fix-publish-ai-error.png`](acceptance/screenshots/accept-p2-fix-publish-ai-error.png) |
+| 必填校验与返回 | PASS | 空标题点击发布提示“请输入标题”，且未发出 `check/text`、`prepare-post`、`finalize-post`；PageHeader 返回社区正常。见 [`accept-p2-fix-publish-validate.png`](acceptance/screenshots/accept-p2-fix-publish-validate.png) |
+
+#### D-P2-02（FAIL）
+
+- 复现：冷启动进入社区，动态列表从第一页连续上拉到底。日志依次为 `lastPostId=112` 返回 20 条、`lastPostId=85` 返回 20 条、`lastPostId=26` 返回 14 条；此后继续上拉不再发请求，内容停在末条，但底部持续显示“上拉加载更多”。
+- 实际：最后一页 14 条已渲染，底部文案仍为“上拉加载更多”；持续滚动约 35 秒、70 次上拉后仍未变化。见 [`accept-p2-fix-community-end-stale.png`](acceptance/screenshots/accept-p2-fix-community-end-stale.png)。
+- 对照：切换至“跑腿”再切回“动态”，重新滚到底后显示“没有更多数据了”。说明分页数据与 `hasMore` 已更新，但首次到底时底部文案未随 `pager.hasMore` 变更刷新。
+- 相关实现：`entry/src/main/ets/pages/Community.ets:46` 为非 `@State` 的 `private pager`，`:99-101` 在 `loadMore()` 后只回写 `posts`，`:573` 直接读取 `this.pager.footerText()`；`entry/src/main/ets/services/PagedList.ets:104-112` 的 `hasMore` 已为 false。建议将到底提示改为直接依赖可观察状态，但验收阶段未修改代码。
+- 影响：不影响已加载内容，但到底状态仍会误导用户；D-P2-02 维持 Minor，未关闭。
+- 我的动态：PASS。进入“我的”滚动自有动态到底，底部显示“没有更多数据了”；当前账号自有动态不足 20 条，走同一 `hasMore=false` 初始加载分支。见 [`accept-p2-fix-mine-end.png`](acceptance/screenshots/accept-p2-fix-mine-end.png)。
+
+### 回归
+
+| 项目 | 结果 | 证据 |
+| --- | --- | --- |
+| P2.2 四 Tab | PASS | “动态”显示真实动态；“跑腿”显示真实跑腿任务；“二手”“评分”分别显示参考实现中的开发中占位。见 [`accept-p2-fix-community-dynamic.png`](acceptance/screenshots/accept-p2-fix-community-dynamic.png)、[`accept-p2-fix-community-errand.png`](acceptance/screenshots/accept-p2-fix-community-errand.png)、[`accept-p2-fix-community-secondhand.png`](acceptance/screenshots/accept-p2-fix-community-secondhand.png)、[`accept-p2-fix-community-rating.png`](acceptance/screenshots/accept-p2-fix-community-rating.png) |
+| 点赞 | PASS | 对动态 `197` 点赞与取消：计数 `25 → 26 → 25`，两次 `POST /community/like-post` 均 200，最终恢复原状态。见 [`accept-p2-fix-community-like.png`](acceptance/screenshots/accept-p2-fix-community-like.png) |
+| 下拉刷新 | PASS | 顶部下拉发出 `GET /community/recommend-post` 并 200，第一页内容保留、无白屏。见 [`accept-p2-fix-community-refresh-done.png`](acceptance/screenshots/accept-p2-fix-community-refresh-done.png) |
+| P2.4 分类/校验/返回 | PASS | 四分类逐项可选；“日常分享”发布成功；空标题校验与返回社区均正常 |
+| P2.1 首页 / P2.3 详情 | 未重跑 | 本轮仅做定点复验与受影响页面回归；上轮首页/详情结论不变 |
+
+### 测试数据
+
+- 本轮仅新建 1 条动态：id **`197`**，标题 `复验-发布分类修复-2240`，分类“日常分享”，正文 `这是一条用于P2.1验收的纯文字动态，发布后记录ID，验证prepare-post与finalize-post。`；无删除动态接口，请验收结束后人工清理。
+- 点赞已现场取消，计数恢复为 `0`；未新增评论、回复或其他测试动态。
+
+### 结论
+
+**不通过（定点复验）：Blocker 0 / Major 0 / Minor 1。**
+
+D-P2-01 已通过并关闭：发布页稳定显示后端四个有效分类，加载期间不暴露旧分类，逐项选中正常，使用“日常分享”完成了真实的 `check/text → prepare-post → finalize-post` 发布链路，新动态位于社区首位。D-P2-02 未通过：社区自然滚到最后一页仍显示“上拉加载更多”，仅在切 Tab 触发重渲染后恢复正确文案。AI 真实润色、图片选中后上传仍按既有环境限制标 NOT TESTED，不计缺陷。

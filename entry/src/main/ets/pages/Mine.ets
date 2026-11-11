@@ -30,6 +30,7 @@ export struct Mine {
   @State doneCount: number = 0;
   @State todayFocusMinutes: number = 0;
   @State loadingPosts: boolean = true;
+  @State postFooterText: string = '';
   @State refreshing: boolean = false;
   @State showBackToTop: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -99,10 +100,15 @@ export struct Mine {
     }
   }
 
+  private syncPostPagerState(): void {
+    this.posts = this.postPager.items;
+    this.postFooterText = this.postPager.footerText();
+  }
+
   async loadFirstPosts(): Promise<void> {
     this.loadingPosts = true;
     await this.postPager.refresh();
-    this.posts = this.postPager.items;
+    this.syncPostPagerState();
     this.loadingPosts = false;
   }
 
@@ -114,13 +120,15 @@ export struct Mine {
     } catch (err) {
       LogUtil.warn('mine', `refresh failed ${(err as Error).message}`);
     } finally {
+      this.syncPostPagerState();
       this.refreshing = false;
     }
   }
 
   async loadMorePosts(): Promise<void> {
+    this.postFooterText = '加载中...';
     await this.postPager.loadMore();
-    this.posts = this.postPager.items;
+    this.syncPostPagerState();
   }
 
   private displayName(): string {
@@ -574,7 +582,7 @@ export struct Mine {
                 ForEach(this.posts, (post: CommunityPost) => {
                   this.MyPostCard(post)
                 }, (post: CommunityPost) => post.id)
-                Text(this.postPager.footerText())
+                Text(this.postFooterText)
                   .fontSize(12)
                   .fontColor('#999999')
                   .width('100%')

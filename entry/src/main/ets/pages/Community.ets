@@ -37,6 +37,8 @@ export struct Community {
   @State currentTab: string = 'dynamic';
   @State loading: boolean = true;
   @State refreshing: boolean = false;
+  @State footerText: string = '';
+  @State pagerError: string = '';
   @State showBackToTop: boolean = false;
   @State previewUrl: string = '';
   @State followedAuthors: string[] = [];
@@ -75,10 +77,16 @@ export struct Community {
     }
   }
 
+  private syncPagerState(): void {
+    this.posts = this.pager.items;
+    this.footerText = this.pager.footerText();
+    this.pagerError = this.pager.error;
+  }
+
   async loadFirstPage(): Promise<void> {
     this.loading = true;
     await this.pager.refresh();
-    this.posts = this.pager.items;
+    this.syncPagerState();
     this.loading = false;
     this.showBackToTop = false;
   }
@@ -87,18 +95,19 @@ export struct Community {
     this.refreshing = true;
     try {
       await this.pager.reload();
-      this.posts = this.pager.items;
       this.showBackToTop = false;
     } catch (err) {
       LogUtil.warn('community', `refresh failed ${(err as Error).message}`);
     } finally {
+      this.syncPagerState();
       this.refreshing = false;
     }
   }
 
   async loadMore(): Promise<void> {
+    this.footerText = '加载中...';
     await this.pager.loadMore();
-    this.posts = this.pager.items;
+    this.syncPagerState();
   }
 
   private tabs(): CommunityTab[] {
@@ -559,7 +568,7 @@ export struct Community {
         ForEach(this.filteredPosts(), (post: CommunityPost) => {
           this.PostCard(post)
         }, (post: CommunityPost) => `${post.id}-${post.isLike}-${post.likeCount}-${post.commentCount}`)
-        if (this.pager.error.length > 0) {
+        if (this.pagerError.length > 0) {
           Text('加载失败，点击重试')
             .fontSize(12)
             .fontColor('#ff6b6b')
@@ -570,7 +579,7 @@ export struct Community {
               this.loadMore();
             })
         } else {
-          Text(this.pager.footerText())
+          Text(this.footerText)
             .fontSize(12)
             .fontColor('#999999')
             .width('100%')
