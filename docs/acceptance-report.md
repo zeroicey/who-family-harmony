@@ -201,3 +201,144 @@ M1、M2、M3、M4、M6、m1、m2 在可验证范围内通过；M5 因三处下�
 **通过：Blocker 0 / Major 0 / Minor 0。**
 
 M5 已关闭：社区、详情、我的三处下拉均出现刷新反馈、实际触发请求并在失败降级后复位。m4 已关闭：非数字 ID 的 Mock 浏览量使用稳定哈希，运行态与脚本结果均为 10–200 内的数字，无 `NaN`。本轮两项均 PASS。
+
+## 页面验收（P2.1–P2.4，340e8a3）
+
+- 验收日期：2026-11-11
+- 分支：`feat/harmony-parity`
+- 冻结点：`340e8a320434880c85a5cd8d985408a97debcbc0`
+- 冻结状态：开始验收时 `git status --short` 为空；验收期间未修改 `entry/`、构建配置、`docs/parity-plan.md` 或 `env.ets`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，API 24
+- 后端：生产 `https://api.hcyj.xyz`；演示 token 有效，真实接口可访问
+- 安装包：`entry-default-unsigned.hap`，SHA-256 `9b01918ff50ece11ae21b26ce22497da9093a2903dfc8b32708857ffafc64e48`
+- 参考实现：`../who_family_wechat`，HEAD `47896e31150215b31e751e1f04427f7a56b53f99`，工作区干净
+- 范围：仅 P2.1 首页、P2.2 社区列表、P2.3 社区详情、P2.4 发布动态；未验收 P2.5 及后续页面
+
+### 门槛与冻结
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| 冻结点 | PASS | `git rev-parse HEAD` 为 `340e8a320434880c85a5cd8d985408a97debcbc0` |
+| 工作区 | PASS | 开始前 `git status --short` 为空 |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Errors: 0 / Warns: 19` |
+| 路由表 | PASS | `preflight` 检查 30 条路由 |
+| Web 图片残留 | PASS | `preflight` 检查 Web 图片引用为 0；网络图片使用 `Image/NetImage` |
+| 安装与启动 | PASS | `hdc install -r` 成功；`EntryAbility` 为 `FOREGROUND`，无启动崩溃或白屏 |
+
+### 环境更新与数据说明
+
+| 项 | 本轮结论 | 证据 |
+| --- | --- | --- |
+| S3 图片证书 | **PASS，原环境阻塞已解除** | MinIO 证书续签后，未使用 `-k` 直连签名图片 GET：HTTP 200、`ssl_verify_result=0`、`324702` bytes；应用内社区列表与详情实图均正常显示。此前“真实图片只能显示占位”的结论不再适用于本轮 |
+| DashScope | **NOT TESTED（真实流式）** | 无有效 key；仅验证错误面板、原文保留、重试、关闭。真实逐字润色/应用建议未测，按既有允许偏差处理，不计代码缺陷 |
+| 模拟器相册 | **NOT TESTED（选中后链路）** | 系统图片选择器可打开，显示“已选 0/4”，相册为空；选图、预览、删除、图片检查、上传、带图发布均未测 |
+| 生产测试数据 | 记录，不计代码缺陷 | 动态 id `194`、`195` 标题含“自测”；本轮未修改或删除这两条动态 |
+
+### 页面结果汇总
+
+| 页面 | 结果 | 缺陷 | 未测项 |
+| --- | --- | --- | --- |
+| P2.1 首页 | **PASS（核心链路）** | 无 | 构造断网/空数据后的首页失败态、空态未单独复测；加载态已观察 |
+| P2.2 社区列表 | **PASS（Minor 1）** | D-P2-02 | 断网/强制空列表状态未单独构造 |
+| P2.3 社区详情 | **PASS（核心链路）** | 无 | `lastCommentId` 评论分页 NOT TESTED（无 ≥10 条评论的现成动态，且本轮不构造大数据） |
+| P2.4 发布动态 | **FAIL** | D-P2-01 | 图片选择后链路 NOT TESTED（相册空）；AI 真实流式 NOT TESTED（无有效 key） |
+
+### P2.1 首页
+
+**结果：PASS（核心链路）。** 截图：`accept-p2-home-default.png`、`accept-p2-home-banner-swiped.png`、`accept-p2-home-services-scrolled.png`、`accept-p2-home-recruitment.png`、`accept-p2-home-jobs.png`。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 区块顺序与文案 | PASS | 问候/日期 → 轮播 → 推荐服务 → 校园动态 → 推荐岗位，与参考 `pages/home/index.vue` 及 `components/home/*` 的结构一致 |
+| 真实用户 | PASS | 显示真实用户名 `zeroiceyaaaa` 和真实问候/日期，非 Mock 用户 |
+| 轮播 | PASS | 轮播图、标题/副标题、页码点可见；左右滑动后第二张与指示点同步变化 |
+| 服务入口 | PASS | `校园人流天气`→`ServicePersonInfo`、`课表`→`ServiceSchedule`、`成绩`→`ServiceGrade`、`打印`→`ServicePrint`、`更多服务`→`Service`，逐项点击验证 |
+| 校园动态 | PASS | 动态条数、等级标签、标题、摘要、发布人、相对时间/已读数与参考字段一致 |
+| 推荐岗位 | PASS | 真实岗位数据展示；岗位卡进入 `JobDetail`，“查看更多”进入 `JobList` |
+| 加载/空/失败态 | 部分 NOT TESTED | 冷启动加载态可见且无白屏；本轮未单独构造断网、空岗位或空动态场景，空态/失败态标 NOT TESTED |
+| 视觉与滚动 | PASS | 浅灰背景、绿色强调色、服务卡横向滚动与参考一致；连续滚动无白块、崩溃或明显掉帧。右侧第二张服务卡仅露出部分是横向滚动设计，与参考 `scroll-x` 一致，非缺陷 |
+| 返回与安全区 | PASS | 首页作为 Tab 正常显示，子页 PageHeader 返回可用；状态栏、底部安全区无遮挡 |
+
+### P2.2 社区列表
+
+**结果：PASS（核心链路，登记 Minor 1）。** 截图：`accept-p2-community-default.png`、`accept-p2-community-scroll1.png`、`accept-p2-community-scroll2.png`、`accept-p2-community-like.png`、`accept-p2-community-like-top.png`、`accept-p2-community-page2.png`、`accept-p2-community-end.png`、`accept-p2-community-no-more.png`、`accept-p2-community-end-check.png`、`accept-p2-community-refreshing.png`、`accept-p2-community-refresh-done.png`、`accept-p2-community-errand.png`、`accept-p2-community-secondhand.png`、`accept-p2-community-rating.png`、`accept-p2-community-images-default.png`、`accept-p2-community-images-loaded.png`、`accept-p2-community-images-live.png`。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 顶层 Tab | PASS | 固定四项“动态 / 跑腿 / 二手 / 评分”，图标大小、选中色、下划线切换与参考一致 |
+| 分类内容 | PASS | 动态展示真实推荐动态；跑腿展示类型、地点、价格、状态；二手/评分按参考显示“开发中...”占位 |
+| 卡片结构 | PASS | 作者头像/品牌标签、用户名、相对时间、关注、正文、1/2/3/4 图网格、浏览量/评论数/点赞数与参考结构一致 |
+| 真实数据与图片 | PASS | `GET /community/recommend-post` HTTP 200；证书续签后实图可见，1/2/3/4 图布局均验证；截图 `accept-p2-community-images-loaded.png`、`accept-p2-community-images-live.png` |
+| 点赞 | PASS | 点击后服务端 `POST /community/like-post` HTTP 200，计数 0→1，图标与总数同步；失败回滚源码存在 |
+| 关注 | PASS | 点击后本地按钮状态切换；取消关注有确认逻辑，未发现布局或状态异常 |
+| 下拉刷新 | PASS | 下拉出现刷新指示器，释放后发出 `/community/recommend-post`，完成后指示器消失、列表保持可用 |
+| 分页 | PASS（功能翻页）/ FAIL（末页文案，Minor） | 首屏 20 条；后续 `lastPostId=136→87→29→2` 均 HTTP 200，最终返回 0 条且停止再请求，无重复/漏项；但末页仍显示“上拉加载更多”，见 D-P2-02 |
+| 回到顶部 | PASS | 滚动超过阈值出现上箭头，点击回到首条，按钮随后隐藏 |
+| 返回与稳定性 | PASS | 进入详情再返回后计数同步；连续滚动和分页过程中无崩溃、白屏或明显掉帧 |
+| 空/失败态 | NOT TESTED | 本轮使用有效 token，未单独构造 401/断网/空列表；失败降级和空态仅由源码确认 |
+
+### P2.3 社区详情
+
+**结果：PASS（核心链路；评论分页 NOT TESTED）。** 截图：`accept-p2-detail-default.png`、`accept-p2-detail-comment-typed.png`、`accept-p2-detail-comment-sent.png`、`accept-p2-detail-maxlength.png`、`accept-p2-detail-reply-sent.png`、`accept-p2-detail-replies-loaded.png`、`accept-p2-detail-delete-confirm.png`、`accept-p2-detail-reply-delete-confirm.png`、`accept-p2-detail-reply-deleted.png`、`accept-p2-detail-comment-deleted.png`、`accept-p2-detail-refreshing.png`、`accept-p2-detail-two-images.png`、`accept-p2-detail-two-images-loaded.png`、`accept-p2-detail-image-preview.png`。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 作者/标题/正文/统计 | PASS | 真实动态详情展示作者、品牌标签、时间、标题、正文、浏览量/点赞/评论统计；与参考 `PostAuthorInfo`、`PostContent` 结构一致 |
+| 图片网格 | PASS | 两图并排、单图比例、点击预览与关闭均正常；S3 实图正常加载 |
+| 一级评论 | PASS | 空态“暂无评论”可见；输入、`/check/text` 通过、发送、服务端返回 id、列表更新均成功 |
+| 二级回复 | PASS | 点击回复出现目标条“回复 我: 验收评论测试”；发送后回复节点与计数更新；“查看回复/加载更多回复”结构可见 |
+| 字数限制 | PASS | 评论框 `maxLength=200`；输入 205 字被截断为 200 字，超出部分不可输入 |
+| 内容检查 | PASS | 评论和回复发送前均调用 `POST /check/text`，HTTP 200 后才写入；检查失败提示路径由源码确认 |
+| 删除确认/删除 | PASS | 一级评论与回复均先弹确认框，确认后调用 DELETE HTTP 200，节点和计数同步移除；取消不会删除 |
+| 返回列表同步 | PASS | 详情点赞、评论变化写入共享状态；返回社区后对应卡片计数同步 |
+| 评论点赞 | 一致，不计缺陷 | 参考 `CommentItem.vue` 无评论点赞入口；鸿蒙版未新增，按“参考没有即不实现”处理 |
+| 评论分页 | NOT TESTED | 只有首屏满 10 条才显示“加载更多评论”（`CommunityDetail.ets:116-126`）；现有测试动态最多 5 条评论，未构造 ≥10 条评论，`lastCommentId` 运行态未测 |
+| 下拉刷新/返回 | PASS | 下拉出现刷新指示并完成；PageHeader 返回可用；测试期间无崩溃、白屏 |
+
+### P2.4 发布动态
+
+**结果：FAIL（Major 1）。** 截图：`accept-p2-publish-default.png`、`accept-p2-publish-empty-validation.png`、`accept-p2-publish-title-only-validation.png`、`accept-p2-publish-filled.png`、`accept-p2-publish-categories.png`、`accept-p2-publish-categories-live.png`、`accept-p2-publish-ai-error-top.png`、`accept-p2-publish-ai-error.png`、`accept-p2-publish-photo-picker.png`、`accept-p2-publish-success.png`。
+
+| 检查项 | 结果 | 证据 |
+| --- | --- | --- |
+| 页面结构 | PASS | 图片上传区、标题+发布按钮、分类胶囊、正文、AI 润色按钮的区块与参考一致 |
+| 分类来自 `postTypes` | **FAIL** | `GET /community/postTypes` HTTP 200，返回“好物推荐 / 日常分享 / 求助问答 / 活动召集”，但页面连续两次仍显示旧兜底“评分 / 好物推荐 / 跑腿 / 二手”；见 D-P2-01 |
+| 必填/长度校验 | PASS | 空标题提示“请输入标题”；仅标题提示“请输入内容”；标题 `maxLength=99`、正文 `maxLength=10000`，源码同时保留超限提示 |
+| 纯文字发布 | PASS（使用有效分类） | 选择“好物推荐”后 `/check/text` 200 → `prepare-post` 200 → `finalize-post` 200，社区刷新并将新动态置于首位；创建 id `196` |
+| 发布失败处理 | 可复现 | 选择页面显示的旧分类“跑腿”后 `/check/text` 200、`prepare-post` HTTP 500，界面提示“发布失败，请重试”；未生成动态 |
+| 发布后刷新 | PASS | 成功后触发 `communityRefreshAt`，返回社区第一页可见“验收动态-页面测试”首位展示 |
+| AI 润色错误路径 | PASS（仅错误路径） | 无有效 key 时显示“AI 服务暂不可用：AI 服务未返回内容，请稍后重试”；原文保留；重试再次请求；关闭面板不覆盖标题/正文。真实逐字输出、应用/撤回建议 NOT TESTED |
+| 图片选择/预览/删除 | NOT TESTED | 系统选择器可打开并显示“已选 0/4”；模拟器相册为空，选中后的预览、删除、检查、PUT 上传、带图发布未测。该未测原因是相册为空，不是 S3 证书 |
+| 防重复提交 | PASS（源码+运行态） | `publishing` 在请求前置位，发布按钮 `loading`；运行态未出现重复动态 |
+| 返回与安全区 | PASS | PageHeader 返回社区；键盘/输入区无遮挡，状态栏与底部安全区正常 |
+
+### 缺陷
+
+#### D-P2-01（Major，P2.4 发布分类回退且可导致发布 500）
+
+- 复现：有效 token，进入 `+` 发布页；等待 `GET /community/postTypes` HTTP 200。接口返回 `好物推荐 / 日常分享 / 求助问答 / 活动召集`，页面仍显示 `评分 / 好物推荐 / 跑腿 / 二手`；两次独立进入均复现。
+- 实际：选择一个页面可见但不在后端当前分类中的“跑腿”，填写标题和正文后，`/check/text` 200，`POST /community/prepare-post` HTTP 500，Toast“发布失败，请重试”；改选“好物推荐”后可正常发布。
+- 期望：分类胶囊在任何时刻都反映后端 `postTypes` 返回值；可选择项均应能正常发布。兜底数据仅可用于接口失败，不能覆盖已成功的响应。
+- 证据：[`accept-p2-publish-categories-live.png`](acceptance/screenshots/accept-p2-publish-categories-live.png)、[`accept-p2-publish-categories.png`](acceptance/screenshots/accept-p2-publish-categories.png)。相关实现：`entry/src/main/ets/pages/CommunityPublish.ets:28`、`:53-75`、`:309-334`。
+- 影响：用户按页面提供的分类操作会直接发布失败，属核心发布功能严重不符；Page 结果 FAIL。
+
+#### D-P2-02（Minor，P2.2 社区末页仍显示“上拉加载更多”）
+
+- 复现：社区动态连续上拉翻页，最后一次 `lastPostId=2` 返回 0 条后，页面底部仍显示“上拉加载更多”；继续上拉不再发请求。
+- 实际：末页提示与“无更多数据”状态不一致，易误导用户继续等待/刷新。
+- 期望：无更多数据时显示“没有更多数据了”，并停止触发加载。
+- 证据：[`accept-p2-community-end-check.png`](acceptance/screenshots/accept-p2-community-end-check.png)、[`accept-p2-community-no-more.png`](acceptance/screenshots/accept-p2-community-no-more.png)。相关实现：`entry/src/main/ets/pages/Community.ets:97-100`、`:541-578`、`:709-713`，`entry/src/main/ets/services/PagedList.ets:104-112`。
+- 影响：不影响已加载内容，但到底状态提示错误；按 Minor 登记。
+
+### 测试数据与清理
+
+- 未修改/删除生产动态 `194`、`195`；其“自测”标题按已知测试数据记录，不计代码缺陷。
+- 为验证纯文字发布真实链路，新建 1 条动态：id **`196`**，标题 `验收动态-页面测试`，正文 `验收动态内容，仅用于功能验证。`；请在验收结束后清理。
+- 评论/回复验收产生的临时评论 id `88`、回复 id `26` 已在现场删除，动态计数恢复；未保留评论测试数据。
+
+### 结论
+
+**不通过：Blocker 0 / Major 1 / Minor 1。**
+
+P2.1 首页核心链路 PASS；P2.2 社区列表核心链路 PASS（到底文案 Minor）；P2.3 详情核心链路 PASS（评论分页 NOT TESTED）；P2.4 发布页因分类未反映成功接口且可导致 `prepare-post` 500，判 FAIL。S3 证书续签后真实图片加载 PASS，不再是环境阻塞。AI 真实流式、图片选中后上传、评论分页仍为 NOT TESTED，分别受有效 key、空相册、无 ≥10 条评论数据限制。

@@ -58,10 +58,12 @@ export struct Community {
       const posts = await CommunityApi.recommend(token, apiEnvironment, cursor);
       const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
       const repeated = cursor.length > 0 && nextCursor === cursor;
+      // 后端单页最多 20 条；不足 20 条即可判定为最后一页，避免末尾继续显示“上拉加载更多”。
+      const hasMore = posts.length >= 20 && !repeated;
       if (cursor.length === 0) {
         await CacheStore.setJson<CommunityPost[]>(this.context, 'communityPosts', posts);
       }
-      return new PageResult<CommunityPost>(posts, repeated ? '' : nextCursor, posts.length > 0 && !repeated);
+      return new PageResult<CommunityPost>(posts, hasMore ? nextCursor : '', hasMore);
     } catch (err) {
       LogUtil.warn('community', `recommend failed cursor=${cursor} ${(err as Error).message}`);
       if (cursor.length > 0) {

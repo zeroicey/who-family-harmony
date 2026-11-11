@@ -84,10 +84,11 @@ export struct Mine {
       const posts = await CommunityApi.selfPosts(token, apiEnvironment, cursor);
       const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
       const repeated = cursor.length > 0 && nextCursor === cursor;
+      const hasMore = posts.length >= 20 && !repeated;
       if (cursor.length === 0) {
         await CacheStore.setJson<CommunityPost[]>(this.context, 'myPosts', posts);
       }
-      return new PageResult<CommunityPost>(posts, repeated ? '' : nextCursor, posts.length > 0 && !repeated);
+      return new PageResult<CommunityPost>(posts, hasMore ? nextCursor : '', hasMore);
     } catch (err) {
       LogUtil.warn('mine', `self posts failed cursor=${cursor} ${(err as Error).message}`);
       if (cursor.length > 0) {

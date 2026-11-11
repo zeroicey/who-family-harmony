@@ -2,13 +2,13 @@ import { CommunityPost, PostType } from '../models/CommunityPost';
 import { ErrandTask } from '../models/MockModels';
 
 export class CommunityMock {
-  /** 发布分类兜底（后端 /community/postTypes 失败时使用，取自社区参考文案）。 */
+  /** 发布分类兜底：必须与后端 /community/postTypes 的有效名称一致，否则 prepare-post 会 500。 */
   static postTypes(): PostType[] {
     return [
-      new PostType('1', '好物推荐'),
-      new PostType('2', '跑腿'),
-      new PostType('3', '二手'),
-      new PostType('4', '评分')
+      new PostType('4', '好物推荐'),
+      new PostType('1', '日常分享'),
+      new PostType('2', '求助问答'),
+      new PostType('3', '活动召集')
     ];
   }
   static posts(): CommunityPost[] {

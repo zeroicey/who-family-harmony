@@ -25,8 +25,9 @@ struct CommunityPublish {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State titleText: string = '';
   @State contentText: string = '';
-  @State postTypes: PostType[] = CommunityMock.postTypes();
-  @State selectedType: string = '好物推荐';
+  @State postTypes: PostType[] = [];
+  @State selectedType: string = '';
+  @State typesLoading: boolean = true;
   @State images: PickedFile[] = [];
   @State previewUri: string = '';
   @State publishing: boolean = false;
@@ -55,11 +56,10 @@ struct CommunityPublish {
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
       const remoteTypes = await CommunityApi.types(token, env);
-      if (remoteTypes.length > 0) {
-        this.postTypes = remoteTypes;
-      }
+      this.postTypes = remoteTypes.length > 0 ? remoteTypes : CommunityMock.postTypes();
     } catch (err) {
       LogUtil.warn('publish', `post types failed ${(err as Error).message}`);
+      this.postTypes = CommunityMock.postTypes();
     }
     if (this.postTypes.length > 0) {
       let matched = false;
@@ -72,6 +72,7 @@ struct CommunityPublish {
         this.selectedType = this.postTypes[0].name;
       }
     }
+    this.typesLoading = false;
   }
 
   /** 相册最多 4 张，和微信小程序发布页一致。 */
@@ -228,6 +229,20 @@ struct CommunityPublish {
       ToastUtil.show('内容不能超过10000个字');
       return;
     }
+    if (this.typesLoading) {
+      ToastUtil.show('分类加载中，请稍候');
+      return;
+    }
+    let typeValid = false;
+    this.postTypes.forEach((type: PostType) => {
+      if (type.name === this.selectedType) {
+        typeValid = true;
+      }
+    });
+    if (!typeValid) {
+      ToastUtil.show('请选择有效的动态分类');
+      return;
+    }
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
     this.publishing = true;
@@ -309,19 +324,25 @@ struct CommunityPublish {
   CategorySelector() {
     Scroll() {
       Row() {
-        ForEach(this.postTypes, (type: PostType) => {
-          Text(type.name)
+        if (this.typesLoading) {
+          Text('分类加载中...')
             .fontSize(13)
-            .fontWeight(this.selectedType === type.name ? FontWeight.Medium : FontWeight.Regular)
-            .fontColor(this.selectedType === type.name ? '#FFFFFF' : '#666666')
-            .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-            .backgroundColor(this.selectedType === type.name ? '#00cc6a' : '#F4F6F8')
-            .borderRadius(15)
-            .margin({ right: 8 })
-            .onClick(() => {
-              this.selectedType = type.name;
-            })
-        }, (type: PostType) => type.id)
+            .fontColor('#999999')
+        } else {
+          ForEach(this.postTypes, (type: PostType) => {
+            Text(type.name)
+              .fontSize(13)
+              .fontWeight(this.selectedType === type.name ? FontWeight.Medium : FontWeight.Regular)
+              .fontColor(this.selectedType === type.name ? '#FFFFFF' : '#666666')
+              .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+              .backgroundColor(this.selectedType === type.name ? '#00cc6a' : '#F4F6F8')
+              .borderRadius(15)
+              .margin({ right: 8 })
+              .onClick(() => {
+                this.selectedType = type.name;
+              })
+          }, (type: PostType) => type.id)
+        }
       }
     }
     .scrollable(ScrollDirection.Horizontal)
