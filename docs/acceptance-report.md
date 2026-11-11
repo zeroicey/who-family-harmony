@@ -159,3 +159,45 @@ F2、F4、F5、F8、F9、F11 未达到本批完成标准；F6 的代码块/行�
 **不通过：Blocker 0 / Major 1 / Minor 1。**
 
 M1、M2、M3、M4、M6、m1、m2 在可验证范围内通过；M5 因三处下拉刷新被状态守卫吞掉而未达到完成标准；m3 运行态 NOT TESTED。下一步应先修复 M5 的刷新入口与 `try/finally` 复位逻辑，并修复 Mock 浏览量的 `NaN`，随后只复验这两项及受影响页面。
+
+## 复验（round 3，95e34a4）
+
+- 复验日期：2026-11-11
+- 分支：`feat/harmony-parity`
+- 冻结点：`95e34a4e38370050a8b81fe5d88dc02206955085`
+- 冻结状态：复验开始前 `git status --short` 为空；复验期间未修改 `entry/`、构建配置、`docs/parity-plan.md` 或 `env.ets`，仅写入本报告与 `docs/acceptance/screenshots/`
+- 设备：鸿蒙模拟器 `127.0.0.1:5555`，型号 `emulator`，API 24
+- 后端：生产 `https://api.hcyj.xyz`
+- 安装包：`entry-default-unsigned.hap`，SHA-256 `1fd75a24d189ed02bdb8ef7d63ec2c950fbea7fdc0d686de0fd28f198c39e983d`，覆盖安装成功并重启 `EntryAbility`
+- 复验范围：仅 round 2 遗留的 M5、m4；token/key 401 环境阻塞与本次两项无关，沿用既有结论，不展开
+
+### 门槛
+
+| 项 | 结果 | 证据 / 备注 |
+| --- | --- | --- |
+| 冻结点与工作区 | PASS | `git rev-parse HEAD` 为 `95e34a4e38370050a8b81fe5d88dc02206955085`；开始前 `git status --short` 为空 |
+| 构建 | PASS | `./scripts/preflight.sh`：`BUILD SUCCESSFUL`，HAP 存在 |
+| CodeLinter | PASS | `Defects: 19; Errors: 0; Warns: 19; Suggestions: 0` |
+| 安装与启动 | PASS | `hdc install -r` 返回 `install bundle successfully`；`EntryAbility` 处于 `FOREGROUND` |
+
+### 复验项
+
+| ID | 结果 | 证据 |
+| --- | --- | --- |
+| M5 下拉刷新 | **PASS** | 三处 `onRefresh()` 均已移除 `if (this.refreshing) return`，并在 `try/finally` 中复位 `refreshing`：`Community.ets:79-89`、`CommunityDetail.ets:106-116`、`Mine.ets:108-117`。社区下拉拖动时捕获到刷新指示器（`accept3-community-refresh-indicator.png`），释放后日志出现 `GET /community/recommend-post`，HTTP 401 后走 Mock，完成后指示器消失且 4 条动态仍在（`accept3-community-refresh-done.png`）。详情下拉捕获到指示器（`accept3-detail-pull-indicator.png`），释放后日志出现 `GET /community/post-comment?id=post-1`，401 后保留默认评论，完成后指示器消失（`accept3-detail-refresh-done.png`）。我的下拉捕获到指示器（`accept3-mine-pull-indicator.png`），释放后依次发出 `/user/userInfo?id=2`、`/community/self-post`、`/checkin/todos`、`/checkin/focus/today`，均 401 降级；完成后指示器消失，页面内容正常、无白屏或崩溃（`accept3-mine-refresh-done.png`）。401 下“我的”无自有动态缓存，显示既有空态，属数据缺失而非刷新失效 |
+| m4 Mock 浏览量 | **PASS** | `Community.ets:132-142` 已改为对 `post.id`（为空时用标题）逐字符做 `seed = (seed * 31 + charCode) % 100000` 的稳定哈希，返回 `10 + seed % 191`，不再使用 `Number(post.id)`，结果范围固定为 10–200。运行态 4 条 Mock 动态浏览量依次为 `122/123/124/125`（`accept3-community-mock.png`、`accept3-community-scroll1.png`、`accept3-community-scroll2.png`），独立脚本按同一算法计算 `post-1` 至 `post-4` 得到一致结果 `122/123/124/125`；刷新后首条仍为 `122`，前后均未出现 `NaN` |
+
+### 新缺陷
+
+无。Blocker 0 / Major 0 / Minor 0。
+
+### 未测项
+
+- 本轮只定点复验 M5、m4，未重跑完整 P2 页面矩阵；round 2 的 m3 运行态仍为 NOT TESTED，不因本轮通过而改变。
+- 真实后端成功链路、AI 逐字输出、媒体选中后上传仍受既有 401/无效 key/模拟器媒体限制，未在本轮展开。
+
+### 结论
+
+**通过：Blocker 0 / Major 0 / Minor 0。**
+
+M5 已关闭：社区、详情、我的三处下拉均出现刷新反馈、实际触发请求并在失败降级后复位。m4 已关闭：非数字 ID 的 Mock 浏览量使用稳定哈希，运行态与脚本结果均为 10–200 内的数字，无 `NaN`。本轮两项均 PASS。
