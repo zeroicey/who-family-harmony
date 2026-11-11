@@ -51,11 +51,17 @@ export class ChatMessage {
   id: string;
   role: string;
   content: string;
+  /** ai 消息状态：thinking / typing / done / error。 */
+  status: string;
+  /** ai 消息对应的用户提问，用于错误重试。 */
+  question: string;
 
   constructor(id: string = '', role: string = 'ai', content: string = '') {
     this.id = id;
     this.role = role;
     this.content = content;
+    this.status = 'done';
+    this.question = '';
   }
 }
 

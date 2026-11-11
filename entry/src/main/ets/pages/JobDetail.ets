@@ -20,6 +20,7 @@ struct JobDetail {
   @State job: Job = MockData.jobs()[0];
   @State isDelivered: boolean = false;
   @State loading: boolean = true;
+  @State loadError: boolean = false;
 
   aboutToAppear(): void {
     this.load();
@@ -31,20 +32,38 @@ struct JobDetail {
     const token = await AuthStore.getToken(this.context);
     const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
     this.loading = true;
+    this.loadError = false;
     try {
       const detail = await JobApi.detail(token, id, apiEnvironment);
       if (detail !== null) {
         this.job = detail;
         this.isDelivered = detail.isDeliver;
         await CacheStore.setJson<Job>(this.context, `job:${id}`, this.job);
+      } else {
+        this.applyCachedJob(id);
       }
     } catch (_) {
-      const fallback = MockData.jobs().find((item: Job) => item.id === id) || MockData.jobs()[0];
-      this.job = await CacheStore.getJson<Job>(this.context, `job:${id}`, fallback);
-      this.isDelivered = this.job.isDeliver;
       LogUtil.warn('job-detail', `detail fallback id=${id}`);
+      await this.applyCachedJob(id);
     }
     this.loading = false;
+  }
+
+  /** 网络失败时优先用该岗位的缓存；没有缓存进入失败态，避免展示错误岗位。 */
+  private async applyCachedJob(id: string): Promise<void> {
+    const cached = await CacheStore.getJson<Job>(this.context, `job:${id}`, new Job('__missing__'));
+    if (cached.id === id) {
+      this.job = cached;
+      this.isDelivered = cached.isDeliver;
+      this.loadError = false;
+    } else {
+      this.loadError = true;
+    }
+  }
+
+  private publishDelta(): void {
+    AppStorage.setOrCreate<string>('jobDelta',
+      `${this.job.id}|${this.job.collected ? '1' : '0'}|${this.isDelivered ? '1' : '0'}`);
   }
 
   async toggleCollect(): Promise<void> {
@@ -54,12 +73,13 @@ struct JobDetail {
     try {
       await JobApi.collect(token, this.job.id, nextCollected, apiEnvironment);
       this.job.collected = nextCollected;
-      ToastUtil.show(nextCollected ? '收藏成功' : '取消收藏成功');
-    } catch (_) {
-      this.job.collected = nextCollected;
-      ToastUtil.show(nextCollected ? '已收藏' : '已取消收藏');
+      ToastUtil.show(nextCollected ? '收藏成功' : '取消收藏');
+      await CacheStore.setJson<Job>(this.context, `job:${this.job.id}`, this.job);
+      this.publishDelta();
+    } catch (err) {
+      LogUtil.warn('job-detail', `collect failed ${(err as Error).message}`);
+      ToastUtil.show('操作失败，请重试');
     }
-    await CacheStore.setJson<Job>(this.context, `job:${this.job.id}`, this.job);
   }
 
   handleApply(): void {
@@ -92,28 +112,41 @@ struct JobDetail {
       this.job.isDeliver = true;
       ToastUtil.show('投递成功');
       await CacheStore.setJson<Job>(this.context, `job:${this.job.id}`, this.job);
+      this.publishDelta();
     } catch (err) {
       ToastUtil.show(`投递失败：${(err as Error).message}`);
     }
   }
 
   private locationText(): string {
-    return this.job.location.length > 0 ? `📍 ${this.job.location}` : '📍 校园内';
+    return this.job.location.length > 0 ? `📍 ${this.job.location}` : '📍';
   }
 
   private typeText(): string {
-    return this.job.tags.length > 0 && this.job.tags[0].length > 0 ? this.job.tags[0] : '校园岗位';
+    return this.job.tags.length > 0 && this.job.tags[0].length > 0 ? this.job.tags[0] : '活动招募';
   }
 
   private positionsText(): string {
-    return this.job.positions > 0 ? `${this.job.positions}人` : '若干';
+    return `${this.job.positions ? this.job.positions : 0}人`;
+  }
+
+  private deliverCountText(): string {
+    return `${this.job.deliverCount ? this.job.deliverCount : 0}人`;
   }
 
   private dateText(value: string): string {
+    if (!value) {
+      return '';
+    }
     if (value.length >= 10) {
       return value.substring(0, 10);
     }
-    return value.length > 0 ? value : '长期有效';
+    return value;
+  }
+
+  /** 与 detail.vue 的 formatText 一致：把接口返回的 ↵ 还原成换行。 */
+  private formatText(content: string): string {
+    return content.split('↵').join('\n');
   }
 
   @Builder
@@ -227,7 +260,7 @@ struct JobDetail {
         .fontColor('#333333')
         .width('100%')
         .margin({ bottom: 10 })
-      Text(content.length > 0 ? content : '暂无')
+      Text(content.length > 0 ? this.formatText(content) : '暂无')
         .fontSize(13)
         .fontColor(isContact ? '#1890FF' : '#666666')
         .lineHeight(22)
@@ -253,12 +286,12 @@ struct JobDetail {
         .margin({ bottom: 10 })
       Row() {
         this.InfoCell('招聘人数', this.positionsText())
-        this.InfoCell('投递状态', this.isDelivered ? '已投递' : '未投递')
+        this.InfoCell('投递人数', this.deliverCountText())
       }
       .width('100%')
       Row() {
         this.InfoCell('截止时间', this.dateText(this.job.endTime))
-        this.InfoCell('发布时间', '最近更新')
+        this.InfoCell('发布时间', this.dateText(this.job.createTime))
       }
       .width('100%')
       .margin({ top: 10 })
@@ -298,6 +331,25 @@ struct JobDetail {
       if (this.loading) {
         LoadingView({ text: '正在加载招聘详情', minHeight: 240 })
           .width('100%')
+      } else if (this.loadError) {
+        Column() {
+          Text('加载失败，请重试')
+            .fontSize(15)
+            .fontColor('#666666')
+            .margin({ bottom: 18 })
+          Button('重新加载')
+            .height(38)
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .backgroundColor('#1890FF')
+            .borderRadius(6)
+            .onClick(() => {
+              this.load();
+            })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
       } else {
         Scroll() {
           Column() {

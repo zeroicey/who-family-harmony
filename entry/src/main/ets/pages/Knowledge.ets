@@ -1,11 +1,11 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
-import { AppIcon } from '../components/AppIcon';
 import { BackToTop } from '../components/common/BackToTop';
 import { EmptyState } from '../components/common/EmptyState';
 import { KnowledgeArticle } from '../models/MiniProgramModels';
 import { ScrollToTop } from '../services/PagedList';
 import { CacheStore } from '../stores/CacheStore';
+import { LogUtil } from '../utils/LogUtil';
 import { MockData } from '../utils/MockData';
 
 @Entry
@@ -16,7 +16,47 @@ export struct Knowledge {
   @State activeTab: string = '前端';
   @State articles: KnowledgeArticle[] = MockData.knowledgeArticles();
   @State showBackToTop: boolean = false;
+  @StorageLink('knowledgeLikedDelta') @Watch('onLikedDelta') likedDelta: string = '';
   private scroller: Scroller = new Scroller();
+
+  aboutToAppear(): void {
+    this.loadLikedStates();
+  }
+
+  /** 启动时把已收藏文章的点赞数 +1，避免列表与详情不一致。 */
+  private async loadLikedStates(): Promise<void> {
+    const ids = await CacheStore.getJson<string[]>(this.context, 'knowledgeLikedIds', []);
+    const articles = MockData.knowledgeArticles();
+    articles.forEach((item: KnowledgeArticle) => {
+      if (ids.indexOf(item.id) >= 0) {
+        item.likes += 1;
+      }
+    });
+    this.articles = articles;
+  }
+
+  private onLikedDelta(): void {
+    if (this.likedDelta.length === 0) {
+      return;
+    }
+    const parts = this.likedDelta.split('|');
+    if (parts.length < 2) {
+      AppStorage.setOrCreate<string>('knowledgeLikedDelta', '');
+      return;
+    }
+    const id = parts[0];
+    const liked = parts[1] === '1';
+    LogUtil.info('knowledge', `liked delta id=${id} liked=${liked ? '1' : '0'}`);
+    const apply = (item: KnowledgeArticle): KnowledgeArticle => {
+      if (item.id !== id) {
+        return item;
+      }
+      item.likes += liked ? 1 : -1;
+      return item;
+    };
+    this.articles = this.articles.map(apply);
+    AppStorage.setOrCreate<string>('knowledgeLikedDelta', '');
+  }
 
   filteredArticles(): KnowledgeArticle[] {
     return this.articles.filter((item: KnowledgeArticle) => item.category === this.activeTab);
@@ -167,16 +207,11 @@ export struct Knowledge {
           .fontSize(11)
           .fontColor('#999999')
           .layoutWeight(1)
-        AppIcon({ name: 'community_view', iconSize: 12 })
-          .opacity(0.65)
-          .margin({ right: 4 })
-        Text(this.formatNumber(item.views))
+        Text(`👁 ${this.formatNumber(item.views)}`)
           .fontSize(11)
           .fontColor('#999999')
           .margin({ right: 12 })
-        AppIcon({ name: 'community_like', iconSize: 12 })
-          .margin({ right: 4 })
-        Text(this.formatNumber(item.likes))
+        Text(`👍 ${this.formatNumber(item.likes)}`)
           .fontSize(11)
           .fontColor('#999999')
       }
@@ -223,7 +258,7 @@ export struct Knowledge {
             } else {
               ForEach(this.filteredArticles(), (item: KnowledgeArticle) => {
                 this.KnowledgeCard(item)
-              }, (item: KnowledgeArticle) => item.id)
+              }, (item: KnowledgeArticle) => `${item.id}-${item.likes}`)
             }
           }
           .width('100%')
