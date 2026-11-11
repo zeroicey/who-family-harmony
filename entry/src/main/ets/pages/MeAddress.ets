@@ -7,12 +7,27 @@ import { UserApi } from '../api/UserApi';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAddress {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State addresses: AddressItem[] = MockData.addresses();
+  private pendingDeleteId: string = '';
+  private deleteDialog: CustomDialogController = new CustomDialogController({
+    builder: ConfirmDialog({
+      title: '确认删除',
+      message: '确定要删除这个地址吗？',
+      confirmText: '删除',
+      confirmColor: '#FF3B30',
+      onConfirm: () => {
+        this.deletePending();
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  });
 
   aboutToAppear(): void {
     this.load();
@@ -60,17 +75,20 @@ struct MeAddress {
   }
 
   confirmDelete(item: AddressItem): void {
-    AlertDialog.show({
-      title: '确认删除',
-      message: '确定要删除这个地址吗？',
-      primaryButton: {
-        value: '删除',
-        action: () => {
-          this.deleteAddress(item);
-        }
-      },
-      secondaryButton: { value: '取消', action: () => {} }
-    });
+    this.pendingDeleteId = item.id;
+    this.deleteDialog.open();
+  }
+
+  async deletePending(): Promise<void> {
+    const id = this.pendingDeleteId;
+    this.pendingDeleteId = '';
+    if (id.length === 0) {
+      return;
+    }
+    const target = this.addresses.find((addr: AddressItem) => addr.id === id);
+    if (target !== undefined) {
+      await this.deleteAddress(target);
+    }
   }
 
   async deleteAddress(item: AddressItem): Promise<void> {

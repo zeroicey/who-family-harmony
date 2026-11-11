@@ -1,3 +1,6 @@
+import { PrimaryButton } from '../components/common/PrimaryButton';
+import { PickedFile, UploadService } from '../services/UploadService';
+import { LogUtil } from '../utils/LogUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
 import { PageHeader } from '../components/common/PageHeader';
@@ -7,6 +10,42 @@ struct MeFeedback {
   @State activeType: string = '功能建议';
   @State content: string = '';
   @State contact: string = '';
+  @State images: PickedFile[] = [];
+  @State previewUri: string = '';
+
+  async pickImages(): Promise<void> {
+    const remain = 3 - this.images.length;
+    if (remain <= 0) {
+      ToastUtil.show('最多选择3张图片');
+      return;
+    }
+    try {
+      const picked = await UploadService.pickImages(remain);
+      const accepted: PickedFile[] = [];
+      picked.forEach((file: PickedFile) => {
+        const reason = UploadService.checkImage(file);
+        if (reason.length > 0) {
+          ToastUtil.show(reason);
+        } else {
+          accepted.push(file);
+        }
+      });
+      this.images = this.images.concat(accepted.slice(0, remain));
+    } catch (err) {
+      LogUtil.warn('feedback', `pick images failed ${(err as Error).message}`);
+      ToastUtil.show('选择图片失败，请重试');
+    }
+  }
+
+  deleteImage(index: number): void {
+    const next: PickedFile[] = [];
+    this.images.forEach((file: PickedFile, fileIndex: number) => {
+      if (fileIndex !== index) {
+        next.push(file);
+      }
+    });
+    this.images = next;
+  }
 
   setType(value: string): void {
     this.activeType = value;
@@ -90,15 +129,57 @@ struct MeFeedback {
 
       Column() {
         this.Label('截图凭证')
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(this.images, (file: PickedFile, index: number) => {
+            Stack({ alignContent: Alignment.TopEnd }) {
+              Image(file.uri)
+                .width(80)
+                .height(80)
+                .objectFit(ImageFit.Cover)
+                .borderRadius(10)
+                .onClick(() => {
+                  this.previewUri = file.uri;
+                })
+              Text('×')
+                .fontSize(15)
+                .fontColor('#FFFFFF')
+                .textAlign(TextAlign.Center)
+                .width(20)
+                .height(20)
+                .borderRadius(10)
+                .backgroundColor('#99000000')
+                .onClick(() => {
+                  this.deleteImage(index);
+                })
+            }
+            .width(80)
+            .height(80)
+            .margin({ right: 10, bottom: 10 })
+          }, (file: PickedFile, index: number) => `${file.uri}-${index}`)
+
+          if (this.images.length < 3) {
+            Text('+')
+              .fontSize(28)
+              .fontColor('#999999')
+              .textAlign(TextAlign.Center)
+              .width(80)
+              .height(80)
+              .borderRadius(10)
+              .backgroundColor('#F8F9FA')
+              .margin({ right: 10, bottom: 10 })
+              .onClick(() => {
+                this.pickImages();
+              })
+          }
+        }
+        .width('100%')
         Text('最多选择3张图片')
           .fontSize(14)
           .fontColor('#999999')
           .width('100%')
-          .height(56)
-          .textAlign(TextAlign.Center)
-          .backgroundColor('#F8F9FA')
-          .borderRadius(10)
+          .margin({ top: 4 })
       }
+      .alignItems(HorizontalAlign.Start)
       .width('100%')
       .padding({ top: 18, bottom: 16 })
       .border({ width: { bottom: 1 }, color: '#F0F0F0' })
@@ -160,9 +241,10 @@ struct MeFeedback {
   }
 
   build() {
-    Column() {
-      PageHeader({ title: '反馈' })
-      Scroll() {
+    Stack({ alignContent: Alignment.Center }) {
+      Column() {
+        PageHeader({ title: '反馈' })
+        Scroll() {
         Column() {
           Text('倾听您的声音')
             .fontSize(26)
@@ -183,20 +265,43 @@ struct MeFeedback {
       }
       .layoutWeight(1)
 
-      Button('提交反馈')
-        .width('90%')
-        .height(46)
-        .fontSize(16)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(23)
-        .margin({ bottom: 22 })
-        .onClick(() => {
-          this.submit();
+        PrimaryButton({
+          text: '提交反馈',
+          buttonWidth: '90%',
+          buttonHeight: 46,
+          buttonRadius: 23,
+          onTap: () => {
+            this.submit();
+          }
         })
+          .margin({ bottom: 22 })
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F8F9FA')
+
+      if (this.previewUri.length > 0) {
+        Column() {
+          Image(this.previewUri)
+            .width('100%')
+            .height('80%')
+            .objectFit(ImageFit.Contain)
+          Text('点击任意处关闭')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .margin({ top: 18 })
+        }
+        .justifyContent(FlexAlign.Center)
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#000000')
+        .zIndex(20)
+        .onClick(() => {
+          this.previewUri = '';
+        })
+      }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F8F9FA')
   }
 }

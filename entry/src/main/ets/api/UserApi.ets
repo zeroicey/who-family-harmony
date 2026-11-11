@@ -1,4 +1,5 @@
 import { ApiConfig, ApiEmptyResponse, ApiEnvironment } from './ApiConfig';
+import { CheckApi } from './CheckApi';
 import { HttpClient } from './HttpClient';
 import { AddressItem } from '../models/MiniProgramModels';
 import { UserProfile } from '../models/UserProfile';
@@ -23,6 +24,18 @@ class UserInfoResponse {
 class AvatarResponse {
   success: boolean = false;
   data: string = '';
+}
+
+class AvatarUploadPayload {
+  avatar: string = '';
+
+  constructor(avatar: string) {
+    this.avatar = avatar;
+  }
+}
+
+class AvatarUploadResponse {
+  avatarId: string | number = '';
 }
 
 class StoragePayload {
@@ -94,8 +107,30 @@ export class UserApi {
     return result.data.data;
   }
 
-  static async updateUserInfo(token: string, user: UserProfile, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+  /** 保存资料前先检查文本，与小程序 api/user.js updateUserInfo 一致。 */
+  static async updateUserInfo(token: string, user: UserProfile,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    const check = await CheckApi.checkText(token, user, apiEnvironment);
+    if (!check.passed) {
+      throw new Error(check.message);
+    }
     await HttpClient.put<ApiEmptyResponse>('/user/userInfo', token, user, apiEnvironment);
+  }
+
+  /** 上传头像：先做图片检查，再 PUT /user/avatar，返回 avatarId。 */
+  static async updateAvatar(token: string, imageBase64: string, mimeType: string = 'image/png',
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<string> {
+    const check = await CheckApi.checkImg(token, imageBase64, mimeType, apiEnvironment);
+    if (!check.passed) {
+      throw new Error(check.message);
+    }
+    const avatar = `data:${mimeType};base64,${imageBase64}`;
+    const result = await HttpClient.put<AvatarUploadResponse>('/user/avatar', token,
+      new AvatarUploadPayload(avatar), apiEnvironment);
+    if (result.data === null) {
+      throw new Error('后端未返回头像 id');
+    }
+    return UserApi.safeText(result.data.avatarId);
   }
 
   static async selfPosts<T>(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<T[]> {

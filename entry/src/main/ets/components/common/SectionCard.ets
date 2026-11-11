@@ -7,7 +7,7 @@ import { AppColors, AppFont, AppRadius, AppShadow, AppSpace } from '../../theme/
 export struct SectionCard {
   @Prop title: string = '';
   @Prop subtitle: string = '';
-  @Prop background: string = AppColors.bgCard;
+  @Prop cardBg: string = AppColors.bgCard;
   @Prop cardPadding: number = AppSpace.lg;
   @Prop cardRadius: number = AppRadius.lg;
   @Prop showShadow: boolean = true;
@@ -47,7 +47,7 @@ export struct SectionCard {
     .width('100%')
     .padding(this.cardPadding)
     .borderRadius(this.cardRadius)
-    .backgroundColor(this.background)
+    .backgroundColor(this.cardBg)
     .shadow(this.showShadow ? AppShadow.card : AppShadow.none)
   }
 }

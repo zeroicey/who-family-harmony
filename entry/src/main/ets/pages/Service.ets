@@ -1,5 +1,6 @@
 import { router } from '@kit.ArkUI';
 import { CoverImage } from '../components/common/CoverImage';
+import { SectionCard } from '../components/common/SectionCard';
 import { MockData, ServiceItem } from '../utils/MockData';
 
 import { PageHeader } from '../components/common/PageHeader';
@@ -138,25 +139,14 @@ struct Service {
       .width('100%')
       .height(300)
 
-      Column() {
-        Text('校园服务')
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#333333')
-          .width('100%')
-        Text('课表、成绩、人流、打印等入口集中在这里，常用服务一点直达。')
-          .fontSize(13)
-          .fontColor('#666666')
-          .lineHeight(20)
-          .width('100%')
-          .margin({ top: 8 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('calc(100% - 40vp)')
-      .padding(18)
-      .backgroundColor('#FFFFFF')
-      .borderRadius(20)
-      .margin({ top: 12 })
+      SectionCard({
+        title: '校园服务',
+        subtitle: '课表、成绩、人流、打印等入口集中在这里，常用服务一点直达。',
+        cardRadius: 20,
+        cardPadding: 18
+      })
+        .width('calc(100% - 40vp)')
+        .margin({ top: 12 })
 
       Blank()
     }

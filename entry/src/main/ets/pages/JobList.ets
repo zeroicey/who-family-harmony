@@ -1,6 +1,9 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
+import { EmptyState } from '../components/common/EmptyState';
 import { NetImage } from '../components/common/NetImage';
+import { Skeleton } from '../components/common/Skeleton';
+import { Tag } from '../components/common/Tag';
 import { Job } from '../models/Job';
 import { JobApi } from '../api/JobApi';
 import { AuthStore } from '../stores/AuthStore';
@@ -12,12 +15,14 @@ import { PageHeader } from '../components/common/PageHeader';
 export struct JobList {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State jobs: Job[] = [];
+  @State loading: boolean = true;
 
   aboutToAppear(): void {
     this.refresh();
   }
 
   async refresh(): Promise<void> {
+    this.loading = true;
     const token = await AuthStore.getToken(this.context);
     const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
     try {
@@ -25,6 +30,8 @@ export struct JobList {
     } catch (err) {
       LogUtil.warn('recruit', `recommend jobs failed ${(err as Error).message}`);
       this.jobs = [];
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -115,20 +122,26 @@ export struct JobList {
           }
           .margin({ top: 5 })
           Row() {
-            Text('活动招募')
-              .fontSize(12)
-              .fontColor('#1890ff')
-              .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-              .backgroundColor('#e6f7ff')
-              .borderRadius(12)
+            Tag({
+              text: '活动招募',
+              fgColor: '#1890ff',
+              bgColor: '#e6f7ff',
+              fontSize: 12,
+              tagRadius: 12,
+              tagPaddingH: 10,
+              tagPaddingV: 4
+            })
               .margin({ right: 8 })
             if (job.isHot) {
-              Text('热门')
-                .fontSize(12)
-                .fontColor('#fa541c')
-                .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                .backgroundColor('#fff2e8')
-                .borderRadius(12)
+              Tag({
+                text: '热门',
+                fgColor: '#fa541c',
+                bgColor: '#fff2e8',
+                fontSize: 12,
+                tagRadius: 12,
+                tagPaddingH: 10,
+                tagPaddingV: 4
+              })
             }
           }
           .margin({ top: 8 })
@@ -138,13 +151,15 @@ export struct JobList {
 
         Column() {
           if (job.isRecommended) {
-            Text('推荐')
-              .fontSize(10)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#FFFFFF')
-              .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-              .backgroundColor('#ff6b6b')
-              .borderRadius(12)
+            Tag({
+              text: '推荐',
+              fgColor: '#FFFFFF',
+              bgColor: '#ff6b6b',
+              fontSize: 10,
+              tagRadius: 12,
+              tagPaddingH: 8,
+              tagPaddingV: 4
+            })
           }
           if (job.location.length > 0) {
             Text(`📍${job.location}`)
@@ -249,13 +264,28 @@ export struct JobList {
     Column() {
       PageHeader({ title: '招聘' })
       Scroll() {
-      Column() {
-        ForEach(this.jobs, (job: Job) => {
-          this.RecruitCard(job)
-        }, (job: Job) => job.id)
-      }
-      .width('100%')
-      .padding(10)
+        Column() {
+          if (this.loading && this.jobs.length === 0) {
+            Skeleton({ rows: 5, showAvatar: true })
+              .margin({ top: 10 })
+          } else if (this.jobs.length === 0) {
+            EmptyState({
+              title: '暂无招聘信息',
+              description: '稍后再来看看吧',
+              actionText: '重新加载',
+              onAction: () => {
+                this.refresh();
+              }
+            })
+              .margin({ top: 10 })
+          } else {
+            ForEach(this.jobs, (job: Job) => {
+              this.RecruitCard(job)
+            }, (job: Job) => job.id)
+          }
+        }
+        .width('100%')
+        .padding(10)
       }
       .width('100%')
       .layoutWeight(1)

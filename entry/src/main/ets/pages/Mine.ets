@@ -6,11 +6,17 @@ import { FocusApi } from '../api/FocusApi';
 import { TaskApi } from '../api/TaskApi';
 import { UserApi } from '../api/UserApi';
 import { AppIcon } from '../components/AppIcon';
+import { BackToTop } from '../components/common/BackToTop';
+import { EmptyState } from '../components/common/EmptyState';
 import { NetImage } from '../components/common/NetImage';
+import { SectionCard } from '../components/common/SectionCard';
+import { Skeleton } from '../components/common/Skeleton';
 import { CommunityPost } from '../models/CommunityPost';
 import { StudyTask } from '../models/Task';
 import { UserProfile } from '../models/UserProfile';
+import { PageResult, PagedListController, ScrollToTop } from '../services/PagedList';
 import { AuthStore } from '../stores/AuthStore';
+import { CacheStore } from '../stores/CacheStore';
 import { LogUtil } from '../utils/LogUtil';
 
 @Entry
@@ -18,11 +24,17 @@ import { LogUtil } from '../utils/LogUtil';
 export struct Mine {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State user: UserProfile = new UserProfile('用户', ApiConfig.DEMO_USER_ID);
-  @State avatarUrl: string = '';
+  @StorageLink('avatarUrl') avatarUrl: string = '';
   @State posts: CommunityPost[] = [];
   @State todoCount: number = 0;
   @State doneCount: number = 0;
   @State todayFocusMinutes: number = 0;
+  @State loadingPosts: boolean = true;
+  @State refreshing: boolean = false;
+  @State showBackToTop: boolean = false;
+  private scroller: Scroller = new Scroller();
+  private postPager: PagedListController<CommunityPost> =
+    new PagedListController<CommunityPost>((cursor: string) => this.loadSelfPostPage(cursor));
 
   aboutToAppear(): void {
     this.refresh();
@@ -45,12 +57,7 @@ export struct Mine {
       this.avatarUrl = this.user.avatarUrl;
     }
 
-    try {
-      this.posts = await CommunityApi.selfPosts(token, apiEnvironment);
-    } catch (err) {
-      LogUtil.warn('mine', `self posts failed ${(err as Error).message}`);
-      this.posts = [];
-    }
+    await this.loadFirstPosts();
 
     try {
       const tasks = await TaskApi.list(token, apiEnvironment);
@@ -68,6 +75,49 @@ export struct Mine {
       LogUtil.warn('mine', `focus failed ${(err as Error).message}`);
       this.todayFocusMinutes = 0;
     }
+  }
+
+  private async loadSelfPostPage(cursor: string): Promise<PageResult<CommunityPost>> {
+    const token = await AuthStore.getToken(this.context);
+    const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
+    try {
+      const posts = await CommunityApi.selfPosts(token, apiEnvironment, cursor);
+      const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
+      const repeated = cursor.length > 0 && nextCursor === cursor;
+      if (cursor.length === 0) {
+        await CacheStore.setJson<CommunityPost[]>(this.context, 'myPosts', posts);
+      }
+      return new PageResult<CommunityPost>(posts, repeated ? '' : nextCursor, posts.length > 0 && !repeated);
+    } catch (err) {
+      LogUtil.warn('mine', `self posts failed cursor=${cursor} ${(err as Error).message}`);
+      if (cursor.length > 0) {
+        throw new Error('加载更多失败，请重试');
+      }
+      const cached = await CacheStore.getJson<CommunityPost[]>(this.context, 'myPosts', []);
+      return new PageResult<CommunityPost>(cached, '', false);
+    }
+  }
+
+  async loadFirstPosts(): Promise<void> {
+    this.loadingPosts = true;
+    await this.postPager.refresh();
+    this.posts = this.postPager.items;
+    this.loadingPosts = false;
+  }
+
+  async onRefresh(): Promise<void> {
+    if (this.refreshing) {
+      return;
+    }
+    this.refreshing = true;
+    await this.refresh();
+    this.refreshing = false;
+    this.showBackToTop = false;
+  }
+
+  async loadMorePosts(): Promise<void> {
+    await this.postPager.loadMore();
+    this.posts = this.postPager.items;
   }
 
   private displayName(): string {
@@ -243,6 +293,16 @@ export struct Mine {
         AppIcon({ name: 'profile_publish', iconSize: 25 })
           .width(34)
           .height(34)
+        Text('⚙')
+          .fontSize(20)
+          .fontColor('#FFFFFF')
+          .textAlign(TextAlign.Center)
+          .width(34)
+          .height(34)
+          .margin({ left: 4 })
+          .onClick(() => {
+            this.openPage('pages/MeSetting');
+          })
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 20, bottom: 16 })
@@ -479,25 +539,80 @@ export struct Mine {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        this.UserProfileCard()
-        this.QuickNav()
-        this.CoreFunctions()
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Refresh({ refreshing: $$this.refreshing }) {
+        Scroll(this.scroller) {
+          Column() {
+            this.UserProfileCard()
+            SectionCard({
+              cardBg: '#00000000',
+              showShadow: false,
+              cardPadding: 0
+            }) {
+              Column() {
+                this.QuickNav()
+                this.CoreFunctions()
+              }
+              .width('100%')
+            }
 
-        Column() {
-          ForEach(this.posts, (post: CommunityPost) => {
-            this.MyPostCard(post)
-          }, (post: CommunityPost) => post.id)
+            Column() {
+              if (this.loadingPosts && this.posts.length === 0) {
+                Skeleton({ rows: 3, showAvatar: true })
+                  .margin({ left: 12, right: 12 })
+              } else if (this.posts.length === 0) {
+                EmptyState({
+                  title: '还没有发布动态',
+                  description: '去社区分享你的第一条动态吧',
+                  cardBg: '#FFFFFF'
+                })
+                  .margin({ left: 12, right: 12 })
+              } else {
+                ForEach(this.posts, (post: CommunityPost) => {
+                  this.MyPostCard(post)
+                }, (post: CommunityPost) => post.id)
+                Text(this.postPager.footerText())
+                  .fontSize(12)
+                  .fontColor('#999999')
+                  .width('100%')
+                  .textAlign(TextAlign.Center)
+                  .padding({ top: 8, bottom: 18 })
+              }
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12, top: 2 })
+          }
+          .width('100%')
+          .padding({ top: 4, bottom: 28 })
         }
         .width('100%')
-        .padding({ left: 12, right: 12, top: 2 })
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .onScroll(() => {
+          this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 300;
+        })
+        .onScrollEdge((side: Edge) => {
+          if (side === Edge.Bottom) {
+            this.loadMorePosts();
+          }
+        })
       }
       .width('100%')
-      .padding({ top: 4, bottom: 28 })
+      .height('100%')
+      .backgroundColor('#f5f5f5')
+      .onRefreshing(() => {
+        this.onRefresh();
+      })
+
+      BackToTop({
+        visible: this.showBackToTop,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#f5f5f5')
   }
 }

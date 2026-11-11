@@ -1,5 +1,5 @@
 import { ApiEmptyResponse, ApiEnvironment, ApiResult } from './ApiConfig';
-import { HttpClient } from './HttpClient';
+import { ApiError, HttpClient } from './HttpClient';
 
 /** 内容检查结果：passed=false 时调用方必须阻断提交并提示 message。 */
 export class CheckResult {
@@ -46,7 +46,7 @@ export class CheckApi {
       }
       return new CheckResult(false, result.code, CheckApi.failMessage(result));
     } catch (err) {
-      return new CheckResult(false, 0, '内容检查服务暂不可用，请稍后重试');
+      return CheckApi.networkFailure(err, '内容');
     }
   }
 
@@ -69,8 +69,16 @@ export class CheckApi {
       }
       return new CheckResult(false, result.code, CheckApi.failMessage(result));
     } catch (err) {
-      return new CheckResult(false, 0, '图片检查服务暂不可用，请稍后重试');
+      return CheckApi.networkFailure(err, '图片');
     }
+  }
+
+  /** 检查接口不可用（含 401）一律按“未通过”阻断提交，并给出可识别原因。 */
+  private static networkFailure(err: Error, kind: string): CheckResult {
+    if (err instanceof ApiError && err.statusCode === 401) {
+      return new CheckResult(false, 401, `${kind}检查未授权（401），请确认登录状态后重试`);
+    }
+    return new CheckResult(false, 0, `${kind}检查服务暂不可用，请稍后重试`);
   }
 
   /** 文本检查未通过时抛出错误，便于“先检查再提交”的链路直接中断。 */

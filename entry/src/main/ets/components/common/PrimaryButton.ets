@@ -14,7 +14,7 @@ export class ButtonVariant {
 export struct PrimaryButton {
   @Prop text: string = '确定';
   @Prop variant: string = ButtonVariant.PRIMARY;
-  @Prop enabled: boolean = true;
+  @Prop buttonEnabled: boolean = true;
   @Prop loading: boolean = false;
   @Prop buttonHeight: number = AppTheme.buttonHeight;
   @Prop buttonWidth: Length = '100%';
@@ -23,7 +23,7 @@ export struct PrimaryButton {
   };
 
   private isDisabled(): boolean {
-    return !this.enabled || this.loading;
+    return !this.buttonEnabled || this.loading;
   }
 
   private solidColor(): string {
@@ -46,7 +46,7 @@ export struct PrimaryButton {
     return AppColors.textInverse;
   }
 
-  private borderColor(): string {
+  private borderColorValue(): string {
     if (this.variant === ButtonVariant.OUTLINE) {
       return this.isDisabled() ? AppColors.textDisabled : AppColors.brandBlue;
     }
@@ -74,7 +74,7 @@ export struct PrimaryButton {
     .height(this.buttonHeight)
     .padding({ left: 16, right: 16 })
     .backgroundColor(this.solidColor())
-    .border({ width: 1, color: this.borderColor() })
+    .border({ width: 1, color: this.borderColorValue() })
     .borderRadius(this.buttonRadius)
     .stateEffect(!this.isDisabled())
     .enabled(!this.isDisabled())

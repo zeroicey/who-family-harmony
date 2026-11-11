@@ -1,6 +1,8 @@
 import { CommunityPost, PostType } from '../models/CommunityPost';
 import { ApiConfig, ApiEmptyResponse, ApiEnvironment } from './ApiConfig';
 import { HttpClient } from './HttpClient';
+import { CheckApi } from './CheckApi';
+import { PickedFile, UploadService } from '../services/UploadService';
 import { LogUtil } from '../utils/LogUtil';
 
 class CommunityPostResponse {
@@ -38,12 +40,14 @@ export class PostComment {
   author: string;
   content: string;
   createTime: string;
+  uid: string;
 
-  constructor(id: string = '', author: string = '', content: string = '', createTime: string = '') {
+  constructor(id: string = '', author: string = '', content: string = '', createTime: string = '', uid: string = '') {
     this.id = id;
     this.author = author;
     this.content = content;
     this.createTime = createTime;
+    this.uid = uid;
   }
 }
 
@@ -63,16 +67,24 @@ class PreparePostPayload {
   type: string = '';
   imgCount: number = 0;
 
-  constructor(title: string, content: string, type: string = '好物推荐') {
+  constructor(title: string, content: string, type: string = '好物推荐', imgCount: number = 0) {
     this.title = title;
     this.content = content;
     this.type = type;
-    this.imgCount = 0;
+    this.imgCount = imgCount;
   }
+}
+
+/** prepare-post 为每张待上传图片分配的 id 与直传 URL。 */
+export class PrepareImageItem {
+  id: string = '';
+  url: string = '';
 }
 
 class PreparePostResponse {
   id: string = '';
+  communityId: string = '';
+  communityImageList: PrepareImageItem[] = [];
 }
 
 class PostIdPayload {
@@ -180,17 +192,27 @@ export class CommunityApi {
     return result.data === null ? [] : result.data;
   }
 
-  static async recommend(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<CommunityPost[]> {
-    const result = await HttpClient.get<CommunityPostResponse[]>('/community/recommend-post', token, apiEnvironment);
+  private static cursorQuery(lastId: string): string {
+    return lastId.length > 0 ? `?lastPostId=${encodeURIComponent(lastId)}` : '';
+  }
+
+  /** 推荐动态；lastPostId 为空取第一页。 */
+  static async recommend(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
+    lastPostId: string = ''): Promise<CommunityPost[]> {
+    const result = await HttpClient.get<CommunityPostResponse[]>(
+      `/community/recommend-post${CommunityApi.cursorQuery(lastPostId)}`, token, apiEnvironment);
     const posts = result.data === null ? [] : result.data;
-    LogUtil.info('community-api', `recommend raw count=${posts.length} env=${apiEnvironment}`);
+    LogUtil.info('community-api', `recommend raw count=${posts.length} cursor=${lastPostId} env=${apiEnvironment}`);
     return CommunityApi.normalizePosts(posts, apiEnvironment);
   }
 
-  static async selfPosts(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<CommunityPost[]> {
-    const result = await HttpClient.get<CommunityPostResponse[]>('/community/self-post', token, apiEnvironment);
+  /** 我的动态；lastPostId 为空取第一页。 */
+  static async selfPosts(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
+    lastPostId: string = ''): Promise<CommunityPost[]> {
+    const result = await HttpClient.get<CommunityPostResponse[]>(
+      `/community/self-post${CommunityApi.cursorQuery(lastPostId)}`, token, apiEnvironment);
     const posts = result.data === null ? [] : result.data;
-    LogUtil.info('community-api', `self raw count=${posts.length} env=${apiEnvironment}`);
+    LogUtil.info('community-api', `self raw count=${posts.length} cursor=${lastPostId} env=${apiEnvironment}`);
     return CommunityApi.normalizePosts(posts, apiEnvironment);
   }
 
@@ -199,31 +221,123 @@ export class CommunityApi {
     return result.data === null ? null : CommunityApi.normalizePost(result.data, apiEnvironment);
   }
 
-  static async comments(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<PostComment[]> {
-    const result = await HttpClient.get<PostComment[]>(`/community/post-comment?id=${id}`, token, apiEnvironment);
+  /** 一级评论；lastCommentId 为空取第一页（与小程序 api/community.js 一致）。 */
+  static async comments(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
+    lastCommentId: string = ''): Promise<PostComment[]> {
+    const cursor = lastCommentId.length > 0 ? `&lastCommentId=${encodeURIComponent(lastCommentId)}` : '';
+    const result = await HttpClient.get<PostComment[]>(
+      `/community/post-comment?id=${encodeURIComponent(id)}${cursor}`, token, apiEnvironment);
     return result.data === null ? [] : result.data;
   }
 
-  static async replies(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<PostComment[]> {
-    const result = await HttpClient.get<PostComment[]>(`/community/post-comment-reply?id=${id}`, token, apiEnvironment);
+  static async replies(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION,
+    lastCommentId: string = ''): Promise<PostComment[]> {
+    const cursor = lastCommentId.length > 0 ? `&lastCommentId=${encodeURIComponent(lastCommentId)}` : '';
+    const result = await HttpClient.get<PostComment[]>(
+      `/community/post-comment-reply?id=${encodeURIComponent(id)}${cursor}`, token, apiEnvironment);
     return result.data === null ? [] : result.data;
   }
 
-  static async addComment(token: string, postId: string, content: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+  static async addComment(token: string, postId: string, content: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    // 与小程序 api/community.js 一致：先检查文本，未通过则不发评论。
+    const check = await CheckApi.checkText(token, new CommentPayload(postId, content), apiEnvironment);
+    if (!check.passed) {
+      throw new Error(check.message);
+    }
     await HttpClient.post<ApiEmptyResponse>('/community/post-comment', token, new CommentPayload(postId, content), apiEnvironment);
   }
 
-  static async addReply(token: string, commentId: string, content: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+  static async addReply(token: string, commentId: string, content: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    const check = await CheckApi.checkText(token, new CommentPayload(commentId, content), apiEnvironment);
+    if (!check.passed) {
+      throw new Error(check.message);
+    }
     await HttpClient.post<ApiEmptyResponse>('/community/post-comment-reply', token, new CommentPayload(commentId, content), apiEnvironment);
   }
 
-  static async publishText(token: string, title: string, content: string, type: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
-    const prepare = await HttpClient.post<PreparePostResponse>('/community/prepare-post', token, new PreparePostPayload(title, content, type), apiEnvironment);
-    if (prepare.data !== null && prepare.data.id) {
-      await HttpClient.post<ApiEmptyResponse>('/community/finalize-post', token, new PostIdPayload(prepare.data.id), apiEnvironment);
-      return;
+  static async deleteComment(token: string, commentId: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    await HttpClient.delete<ApiEmptyResponse>('/community/post-comment', token,
+      new PostIdPayload(commentId), apiEnvironment);
+  }
+
+  static async deleteReply(token: string, replyId: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    await HttpClient.delete<ApiEmptyResponse>('/community/post-comment-reply', token,
+      new PostIdPayload(replyId), apiEnvironment);
+  }
+
+  /** prepare-post：创建草稿，并拿到 communityId 与每张图片的上传 URL/id。 */
+  static async preparePost(token: string, title: string, content: string, type: string, imgCount: number,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<PreparePostResponse> {
+    const payload = new PreparePostPayload(title, content, type, imgCount);
+    const check = await CheckApi.checkText(token, payload, apiEnvironment);
+    if (!check.passed) {
+      throw new Error(check.message);
     }
-    throw new Error('后端未返回待发布动态 id');
+    const result = await HttpClient.post<PreparePostResponse>('/community/prepare-post', token, payload, apiEnvironment);
+    if (result.data === null) {
+      throw new Error('后端未返回待发布动态');
+    }
+    return result.data;
+  }
+
+  /** 标记单张图片上传完成。 */
+  static async markImageUploaded(token: string, imageId: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    await HttpClient.post<ApiEmptyResponse>('/community/img-uploaded', token, new PostIdPayload(imageId), apiEnvironment);
+  }
+
+  /** finalize-post：草稿转正式动态。 */
+  static async finalizePost(token: string, postId: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    await HttpClient.post<ApiEmptyResponse>('/community/finalize-post', token, new PostIdPayload(postId), apiEnvironment);
+  }
+
+  private static communityIdOf(prepare: PreparePostResponse): string {
+    if (prepare.communityId.length > 0) {
+      return prepare.communityId;
+    }
+    return prepare.id;
+  }
+
+  static async publishText(token: string, title: string, content: string, type: string,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    const prepare = await CommunityApi.preparePost(token, title, content, type, 0, apiEnvironment);
+    const postId = CommunityApi.communityIdOf(prepare);
+    if (postId.length === 0) {
+      throw new Error('后端未返回待发布动态 id');
+    }
+    await CommunityApi.finalizePost(token, postId, apiEnvironment);
+  }
+
+  /**
+   * 图片动态发布：文本检查 → prepare-post → 图片检查 → PUT 直传 → img-uploaded → finalize-post。
+   * 与小程序 store/modules/community.js 的 publish_post_with_image 流程一致。
+   */
+  static async publishWithImages(token: string, title: string, content: string, type: string,
+    images: PickedFile[], apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
+    const prepare = await CommunityApi.preparePost(token, title, content, type, images.length, apiEnvironment);
+    const postId = CommunityApi.communityIdOf(prepare);
+    if (postId.length === 0) {
+      throw new Error('后端未返回待发布动态 id');
+    }
+    const targets = prepare.communityImageList;
+    if (targets.length < images.length) {
+      throw new Error('上传凭证数量不足，请稍后重试');
+    }
+    for (let index = 0; index < images.length; index++) {
+      const image = images[index];
+      const check = await CheckApi.checkImg(token, image.base64(), image.mimeType, apiEnvironment);
+      if (!check.passed) {
+        throw new Error(`第 ${index + 1} 张图片：${check.message}`);
+      }
+      await UploadService.uploadToUrl(targets[index].url, token, image, apiEnvironment);
+      await CommunityApi.markImageUploaded(token, targets[index].id, apiEnvironment);
+    }
+    await CommunityApi.finalizePost(token, postId, apiEnvironment);
   }
 
   static async like(token: string, id: string, like: boolean, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {

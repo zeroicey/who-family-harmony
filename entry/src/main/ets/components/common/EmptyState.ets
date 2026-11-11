@@ -9,7 +9,7 @@ export struct EmptyState {
   @Prop description: string = '当前没有可展示的内容';
   @Prop iconText: string = '—';
   @Prop actionText: string = '';
-  @Prop background: string = AppColors.bgPage;
+  @Prop cardBg: string = AppColors.bgPage;
   onAction: () => void = () => {
   };
 
@@ -43,6 +43,6 @@ export struct EmptyState {
     .width('100%')
     .padding(AppSpace.xxl)
     .borderRadius(12)
-    .backgroundColor(this.background)
+    .backgroundColor(this.cardBg)
   }
 }

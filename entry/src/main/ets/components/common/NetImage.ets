@@ -10,13 +10,24 @@ import { AppColors, AppFont, AppSpace } from '../../theme/Theme';
  */
 @Component
 export struct NetImage {
-  @Prop imageUrl: string = '';
+  @Prop @Watch('onImageUrlChanged') imageUrl: string = '';
   @Prop imageHeight: number = 120;
   @Prop imageRadius: number = 0;
   @Prop fitMode: string = 'cover';
   @Prop imageBgColor: string = AppColors.bgPlaceholder;
   @Prop placeholderText: string = '';
   @State private loadFailed: boolean = false;
+
+  /** URL 变化后必须重置失败态，否则列表复用或换图后仍显示占位。 */
+  onImageUrlChanged(): void {
+    if (this.loadFailed) {
+      this.loadFailed = false;
+    }
+  }
+
+  aboutToReuse(params: Record<string, Object>): void {
+    this.loadFailed = false;
+  }
 
   private imageFit(): ImageFit {
     if (this.fitMode === 'contain') {

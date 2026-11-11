@@ -19,6 +19,7 @@
 
 完成一个任务时，在对应行末追加：`DONE 2026-11-xx @agent`，并在 `## 变更记录` 写一行说明。
 
+
 ---
 
 ## 0. 范围与已确认决策
@@ -83,16 +84,16 @@
 | ID | 任务 | 关键实现 | 主要文件 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | F1 | 主题与设计 token | 颜色（含 `#07c160`/`#007aff`/背景灰）、字号层级、间距、圆角、阴影；提供 ArkUI 可直接用的常量/方法 | 新建 `ets/theme/Theme.ets` | 新页面不再散落魔法值；至少 3 个现有组件改用 token | DONE 2026-11-11 @agent |
-| F2 | 基础组件库 | `PageHeader`（返回+标题+右侧）、`SectionCard`、`Tag`、`PrimaryButton`、`EmptyState`（升级）、`LoadingView`（升级）、`Skeleton`、`BottomSheet`、`ConfirmDialog`、`BackToTop` | `ets/components/common/*` | 组件可在任意页面复用；状态齐全（默认/按压/禁用） | DONE 2026-11-11 @agent |
+| F2 | 基础组件库 | `PageHeader`（返回+标题+右侧）、`SectionCard`、`Tag`、`PrimaryButton`、`EmptyState`（升级）、`LoadingView`（升级）、`Skeleton`、`BottomSheet`、`ConfirmDialog`、`BackToTop` | `ets/components/common/*` | 组件可在任意页面复用；状态齐全（默认/按压/禁用） | DONE 2026-11-11 @agent（复修 M1：公共组件已接入页面；BottomSheet 暂未接入，确认场景统一用 ConfirmDialog；复验待定） |
 | F3 | 网络图片替换 | 用 `Image(url)` 替代 Web 渲染；本地占位图、加载失败回退、圆角/裁剪、列表复用 | 重写 `components/RemoteImage.ets`，删除/改造 `WatermarkImage.ets` | 所有网络图不再创建 Web 引擎；列表滚动无明显卡顿；无 SSL 自动放行 | DONE 2026-11-11 @agent |
-| F4 | 网络层增强 | 二进制 `PUT` 上传、流式响应（SSE/chunk）、无 token/401 统一处理、可选重试；保持现有信封解包 | `api/HttpClient.ets`、`api/ApiConfig.ets` | 单测/手工验证 JSON、二进制、流式三类请求 | DONE 2026-11-11 @agent |
-| F5 | 媒体选择与上传 | `PhotoViewPicker` 选图（头像/社区/反馈）、`DocumentViewPicker` 选文件（打印）、读文件为 base64/ArrayBuffer、大小/类型校验 | 新建 `services/UploadService.ets` | 三类场景均能选到文件并产出可上传数据 | DONE 2026-11-11 @agent |
+| F4 | 网络层增强 | 二进制 `PUT` 上传、流式响应（SSE/chunk）、无 token/401 统一处理、可选重试；保持现有信封解包 | `api/HttpClient.ets`、`api/ApiConfig.ets` | 单测/手工验证 JSON、二进制、流式三类请求 | DONE 2026-11-11 @agent（复修 M2：UploadService→putBinary 已接入；401 探测通过，真实上传成功 NOT TESTED；复验待定） |
+| F5 | 媒体选择与上传 | `PhotoViewPicker` 选图（头像/社区/反馈）、`DocumentViewPicker` 选文件（打印）、读文件为 base64/ArrayBuffer、大小/类型校验 | 新建 `services/UploadService.ets` | 三类场景均能选到文件并产出可上传数据 | DONE 2026-11-11 @agent（复修 M3：发布/头像/反馈/打印四处已接入选择器；模拟器无媒体/文件，选择后读取链路 NOT TESTED；复验待定） |
 | F6 | Markdown 渲染 | 标题、列表、粗斜体、行内/块代码、引用、链接、分割线；不引入第三方依赖 | 新建 `components/common/MarkdownView.ets` | 助手回复与知识正文可正确渲染代码块和列表 | DONE 2026-11-11 @agent |
 | F7 | AI 服务层 | DashScope 流式对话、取消、错误重试；成绩/课表分析、发布润色、知识解读共用 | 新建 `services/AiService.ets`；改造 `api/HelperApi.ets` | 流式逐字输出；断网有错误态；key 不落日志 | DONE 2026-11-11 @agent |
-| F8 | 内容检查接口 | `/check/text`、`/check/img` 封装；上传前先检查，失败阻断并提示 | 新建 `api/CheckApi.ets` | 发布/资料保存前均走检查（与小程序一致） | DONE 2026-11-11 @agent |
-| F9 | 列表模式 | 下拉刷新、分页（`lastPostId`/`lastCommentId`）、加载更多、到底提示、回到顶部 | 新建 `services/PagedList.ets` 或页面内统一模式 | 社区/我的动态/评论三处复用同一模式 | DONE 2026-11-11 @agent |
+| F8 | 内容检查接口 | `/check/text`、`/check/img` 封装；上传前先检查，失败阻断并提示 | 新建 `api/CheckApi.ets` | 发布/资料保存前均走检查（与小程序一致） | DONE 2026-11-11 @agent（复修 M4：发布/评论/资料/头像已接入检查；401 阻断已验证，通过路径 NOT TESTED；复验待定） |
+| F9 | 列表模式 | 下拉刷新、分页（`lastPostId`/`lastCommentId`）、加载更多、到底提示、回到顶部 | 新建 `services/PagedList.ets` 或页面内统一模式 | 社区/我的动态/评论三处复用同一模式 | DONE 2026-11-11 @agent（复修 M5：三处分页/刷新/回顶已接入；真实分页 NOT TESTED（401），回顶与到底提示已验证；复验待定） |
 | F10 | 导航栏统一 | 所有子页加 `PageHeader`，标题按小程序 `pages.json`；安全区/状态栏适配 | 全部子页 | 每个子页都能点返回；标题与小程序一致 | DONE 2026-11-11 @agent |
-| F11 | Mock 拆分与内容迁移 | `MockData.ets` 按域拆分到 `ets/mock/`；迁移知识文章、校园通知、服务卡、协议全文 | `ets/utils/MockData.ets` → `ets/mock/*` | 页面引用不变或平滑迁移；内容与参考一致 | DONE 2026-11-11 @agent |
+| F11 | Mock 拆分与内容迁移 | `MockData.ets` 按域拆分到 `ets/mock/`；迁移知识文章、校园通知、服务卡、协议全文 | `ets/utils/MockData.ets` → `ets/mock/*` | 页面引用不变或平滑迁移；内容与参考一致 | DONE 2026-11-11 @agent（复修 M6：知识正文逐字迁移 4434 字符，代码块/列表/链接运行态已验证；复验待定） |
 
 ---
 
@@ -212,6 +213,30 @@ P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F1
 
 ---
 
+## 验收缺陷复修（M1–M6、m1–m3，2026-11-11）
+
+> 依据 `docs/acceptance-report.md` 复修；验收报告本身未改动。环境仍为无效 `DEMO_TOKEN` / `DASHSCOPE_API_KEY`，因此真实成功链路统一标注 NOT TESTED。
+
+| ID | 状态 | 实现与验证 |
+| --- | --- | --- |
+| M1 | DONE（组件接入） | 删除重复的 `components/EmptyState.ets`、`components/LoadingView.ets`；EmptyState/LoadingView/Skeleton 接入社区、详情、我的动态、招聘、知识、订单；Tag 接入社区卡片、招聘卡片/详情；PrimaryButton 接入发布/资料保存/反馈/打印下单；ConfirmDialog 接入评论删除、地址删除、清缓存、打印确认；BackToTop 接入社区/详情/我的/知识；SectionCard 接入我的/设置/服务聚合。BottomSheet 本轮未接入（所需确认场景均由 ConfirmDialog 覆盖）。 |
+| M2 | DONE（代码 + 401 链路验证） | `UploadService.uploadToUrl()` 调用 `HttpClient.putBinary`；发布页 `publishWithImages` 走 prepare-post→图片检查→PUT→img-uploaded→finalize-post。设置页新增“上传链路自检”：选图（相册不可用时用内置 1x1 PNG）→ PUT → 显示 `HTTP 401（请求已发出）`。真实对象存储上传成功 **NOT TESTED**。 |
+| M3 | DONE（选择器接入）/ 部分 NOT TESTED | 发布页最多 4 图、预览、删除；头像选图上传并写 `AppStorage.avatarUrl` 刷新全局头像；反馈最多 3 图；打印用 DocumentViewPicker 并展示文件名/大小/base64 下单。模拟器相册与文件目录为空：选择器均能打开（4/3/1 限额正确），但“选中文件后读取/预览/删除” **NOT TESTED**。 |
+| M4 | DONE（阻断验证） | 发布（文本+图片）、评论、资料保存、头像保存均先走 CheckApi；401/失败阻断提交并提示。评论实测返回“内容检查未授权（401）”且不落本地评论；检查通过路径 **NOT TESTED**。 |
+| M5 | DONE（代码）/ 部分 NOT TESTED | 社区推荐（lastPostId）、详情评论（lastCommentId）、我的动态（lastPostId）使用 PagedListController + Refresh + onScrollEdge + BackToTop；API 已补游标参数。回顶与“没有更多数据了”实测通过；真实后端分页 **NOT TESTED**（401 降级为 Mock）。 |
+| M6 | DONE | `mock/KnowledgeContent.ets` 逐字迁移参考正文 4434 字符（脚本比对 `equal=true`，12 个代码围栏、无孤立反斜杠）；修复旧缓存导致截断的问题；运行态验证标题/列表/引用/代码块/链接与正文到底。 |
+| m1 | DONE | 助手发送、流式回复、错误气泡后 `scrollEdge(Edge.Bottom)`；实测错误气泡自动进入可见区。 |
+| m2 | DONE | 社区 401/失败优先读缓存，其次 `CommunityMock.posts()`；实测显示 4 条演示动态。 |
+| m3 | DONE（代码） | `NetImage` 对 `imageUrl` 加 `@Watch` 重置 `loadFailed`，并实现 `aboutToReuse`；列表复用/URL 变化场景 **NOT TESTED**（无真实接口数据）。 |
+
+### 本轮复修未验证项（NOT TESTED）
+
+- 真实 `DEMO_TOKEN` 下的 JSON 成功链路、图片对象存储 PUT 成功、内容检查通过路径。
+- 真实后端分页 `lastPostId` / `lastCommentId` 的翻页、去重、到底终止。
+- 相册/文件选择后的实际读取、预览、删除、上传与 base64 下单（模拟器无媒体与文件）。
+- `NetImage` 列表复用换 URL 的真实场景。
+- `DASHSCOPE_API_KEY` 有效时的逐字流式输出（仅验证错误气泡与自动滚动）。
+
 ## 变更记录
 
 | 日期 | 任务 | 说明 |
@@ -232,3 +257,4 @@ P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F1
 | 2026-11-11 | F10 | 全部 25 个子页加 `PageHeader` 并按 `pages.json` 对齐标题；Scroll/Stack 根页面完成包裹 |
 | 2026-11-11 | F11 | Mock 按域拆分到 `ets/mock/`，迁移知识 28 篇+正文、校园动态 7 条、服务卡 5 张、协议全文；`MockData` 保留门面 |
 | 2026-11-11 | 工具链 | 配置 cormorant MCP；新增 `docs/tech-notes.md` 与 `/harmony-api-research` skill；P2.17 图表接入 dataviz |
+| 2026-11-11 | M1–M6 / m1–m3 | 复修验收缺陷：公共组件接入、上传链路与选图/选文件、内容检查、三处分页/刷新/回顶、知识正文完整迁移、助手自动滚动、社区失败降级、NetImage URL 重置；新增设置页上传链路自检。预检 `BUILD SUCCESSFUL`、CodeLinter 0 error / 19 warning；截图见 `docs/acceptance/screenshots/fix-*.png`；真实成功链路仍受 401 阻塞，详见“验收缺陷复修”节 |

@@ -1,9 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import { AppIcon } from '../components/AppIcon';
 import { NetImage } from '../components/common/NetImage';
+import { PrimaryButton } from '../components/common/PrimaryButton';
 import { UserProfile } from '../models/UserProfile';
 import { AuthStore } from '../stores/AuthStore';
 import { UserApi } from '../api/UserApi';
+import { PickedFile, UploadService } from '../services/UploadService';
+import { LogUtil } from '../utils/LogUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
 import { PageHeader } from '../components/common/PageHeader';
@@ -12,6 +15,8 @@ import { PageHeader } from '../components/common/PageHeader';
 struct MeProfile {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State user: UserProfile = new UserProfile();
+  @State saving: boolean = false;
+  @State uploadingAvatar: boolean = false;
 
   aboutToAppear(): void {
     this.load();
@@ -38,7 +43,45 @@ struct MeProfile {
     this.user.grade = value;
   }
 
+  /** 选择头像 → 图片检查 → PUT /user/avatar → 刷新全局头像。 */
+  async pickAvatar(): Promise<void> {
+    if (this.uploadingAvatar) {
+      return;
+    }
+    try {
+      const picked = await UploadService.pickImages(1);
+      if (picked.length === 0) {
+        return;
+      }
+      const file: PickedFile = picked[0];
+      const reason = UploadService.checkImage(file);
+      if (reason.length > 0) {
+        ToastUtil.show(reason);
+        return;
+      }
+      this.uploadingAvatar = true;
+      const token = await AuthStore.getToken(this.context);
+      const env = await AuthStore.getApiEnvironment(this.context);
+      const avatarId = await UserApi.updateAvatar(token, file.base64(), file.mimeType, env);
+      const remoteUrl = await UserApi.getAvatarUrl(token, avatarId, env);
+      this.user.avaterId = avatarId;
+      this.user.avatarUrl = remoteUrl.length > 0 ? remoteUrl : file.uri;
+      await AuthStore.saveUser(this.context, this.user);
+      // 全局头像：Mine 通过 @StorageLink 即时刷新，无需重新进页面。
+      AppStorage.setOrCreate<string>('avatarUrl', this.user.avatarUrl);
+      ToastUtil.show('头像上传成功');
+    } catch (err) {
+      LogUtil.warn('profile', `avatar upload failed ${(err as Error).message}`);
+      ToastUtil.show(`头像上传失败：${(err as Error).message}`);
+    } finally {
+      this.uploadingAvatar = false;
+    }
+  }
+
   async save(): Promise<void> {
+    if (this.saving) {
+      return;
+    }
     if (this.user.nickname.length > 15) {
       ToastUtil.show('昵称不能超过15个字');
       return;
@@ -50,12 +93,17 @@ struct MeProfile {
     this.user.name = this.user.nickname;
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
-    await AuthStore.login(this.context, this.user, token, await AuthStore.getBackendMode(this.context), env);
+    this.saving = true;
     try {
+      // UserApi.updateUserInfo 内部先做 /check/text，未通过或 401 会抛出。
       await UserApi.updateUserInfo(token, this.user, env);
+      await AuthStore.login(this.context, this.user, token, await AuthStore.getBackendMode(this.context), env);
       ToastUtil.show('保存成功');
-    } catch (_) {
-      ToastUtil.show('保存成功');
+    } catch (err) {
+      LogUtil.warn('profile', `save failed ${(err as Error).message}`);
+      ToastUtil.show(`保存失败：${(err as Error).message}`);
+    } finally {
+      this.saving = false;
     }
   }
 
@@ -87,7 +135,7 @@ struct MeProfile {
             .borderRadius(43)
             .backgroundColor('#007AFF')
         }
-        Text('更换')
+        Text(this.uploadingAvatar ? '上传中' : '更换')
           .fontSize(11)
           .fontColor('#FFFFFF')
           .backgroundColor('#80000000')
@@ -95,6 +143,9 @@ struct MeProfile {
           .padding({ left: 8, right: 8, top: 3, bottom: 3 })
       }
       .margin({ top: 18 })
+      .onClick(() => {
+        this.pickAvatar();
+      })
     }
     .alignItems(HorizontalAlign.Center)
     .width('100%')
@@ -261,17 +312,17 @@ struct MeProfile {
       }
       .layoutWeight(1)
 
-      Button('保存修改')
-        .width('92%')
-        .height(46)
-        .fontSize(16)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(23)
-        .margin({ bottom: 22 })
-        .onClick(() => {
+      PrimaryButton({
+        text: '保存修改',
+        loading: this.saving,
+        buttonWidth: '92%',
+        buttonHeight: 46,
+        buttonRadius: 23,
+        onTap: () => {
           this.save();
-        })
+        }
+      })
+        .margin({ bottom: 22 })
     }
     .width('100%')
     .height('100%')

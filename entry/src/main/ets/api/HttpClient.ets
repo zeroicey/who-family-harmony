@@ -140,6 +140,13 @@ export class HttpClient {
     }
     try {
       const raw = response.result as string;
+      if (raw === null || raw === undefined || raw.trim().length === 0) {
+        // 对象存储直传等场景可能返回 2xx 空响应，按成功处理。
+        const empty = new ApiResult<T>();
+        empty.code = status;
+        HttpClient.lastRequestSummary = `${ApiConfig.environmentLabel(apiEnvironment)} ${methodText} ${path} 成功：HTTP ${status}（空响应）`;
+        return empty;
+      }
       const parsed = JSON.parse(raw) as ApiResult<T>;
       HttpClient.lastRequestSummary = `${ApiConfig.environmentLabel(apiEnvironment)} ${methodText} ${path} 成功：HTTP ${status}`;
       LogUtil.info('http', `${methodText} ${path} success status=${status}`);

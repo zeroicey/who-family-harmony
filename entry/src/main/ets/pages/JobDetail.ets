@@ -2,7 +2,9 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { Job } from '../models/Job';
 import { RouteParams } from '../models/MiniProgramModels';
+import { LoadingView } from '../components/common/LoadingView';
 import { NetImage } from '../components/common/NetImage';
+import { Tag } from '../components/common/Tag';
 import { JobApi } from '../api/JobApi';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
@@ -167,29 +169,38 @@ struct JobDetail {
           .fontColor('#FF4D4F')
           .margin({ top: 6 })
         Flex({ wrap: FlexWrap.Wrap }) {
-          Text(this.typeText())
-            .fontSize(11)
-            .fontColor('#1890FF')
-            .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-            .backgroundColor('#E6F7FF')
-            .borderRadius(8)
+          Tag({
+            text: this.typeText(),
+            fgColor: '#1890FF',
+            bgColor: '#E6F7FF',
+            fontSize: 11,
+            tagRadius: 8,
+            tagPaddingH: 8,
+            tagPaddingV: 3
+          })
             .margin({ top: 10, right: 6 })
           if (this.job.isHot) {
-            Text('🔥 热门')
-              .fontSize(11)
-              .fontColor('#FA8C16')
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              .backgroundColor('#FFF2E8')
-              .borderRadius(8)
+            Tag({
+              text: '🔥 热门',
+              fgColor: '#FA8C16',
+              bgColor: '#FFF2E8',
+              fontSize: 11,
+              tagRadius: 8,
+              tagPaddingH: 8,
+              tagPaddingV: 3
+            })
               .margin({ top: 10, right: 6 })
           }
           if (this.job.isRecommended) {
-            Text('⭐ 推荐')
-              .fontSize(11)
-              .fontColor('#52C41A')
-              .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-              .backgroundColor('#F6FFED')
-              .borderRadius(8)
+            Tag({
+              text: '⭐ 推荐',
+              fgColor: '#52C41A',
+              bgColor: '#F6FFED',
+              fontSize: 11,
+              tagRadius: 8,
+              tagPaddingH: 8,
+              tagPaddingV: 3
+            })
               .margin({ top: 10, right: 6 })
           }
         }
@@ -285,14 +296,8 @@ struct JobDetail {
     Column() {
       PageHeader({ title: '招聘详情' })
       if (this.loading) {
-        Column() {
-          Text('加载中...')
-            .fontSize(16)
-            .fontColor('#666666')
-        }
-        .justifyContent(FlexAlign.Center)
-        .width('100%')
-        .height('100%')
+        LoadingView({ text: '正在加载招聘详情', minHeight: 240 })
+          .width('100%')
       } else {
         Scroll() {
           Column() {

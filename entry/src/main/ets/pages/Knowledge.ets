@@ -1,7 +1,10 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { AppIcon } from '../components/AppIcon';
+import { BackToTop } from '../components/common/BackToTop';
+import { EmptyState } from '../components/common/EmptyState';
 import { KnowledgeArticle } from '../models/MiniProgramModels';
+import { ScrollToTop } from '../services/PagedList';
 import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 
@@ -12,13 +15,15 @@ export struct Knowledge {
   @State tabs: string[] = MockData.knowledgeTabs();
   @State activeTab: string = '前端';
   @State articles: KnowledgeArticle[] = MockData.knowledgeArticles();
+  @State showBackToTop: boolean = false;
+  private scroller: Scroller = new Scroller();
 
   filteredArticles(): KnowledgeArticle[] {
     return this.articles.filter((item: KnowledgeArticle) => item.category === this.activeTab);
   }
 
-  openArticle(item: KnowledgeArticle): void {
-    CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${item.id}`, item);
+  async openArticle(item: KnowledgeArticle): Promise<void> {
+    await CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${item.id}`, item);
     router.pushUrl({ url: 'pages/KnowledgeArticle', params: { id: item.id } });
   }
 
@@ -190,44 +195,59 @@ export struct Knowledge {
   }
 
   build() {
-    Column() {
-      Scroll() {
-        Row() {
-          ForEach(this.tabs, (tab: string) => {
-            this.TabItem(tab)
-          }, (tab: string) => tab)
-        }
-        .padding({ left: 10, right: 10 })
-      }
-      .scrollable(ScrollDirection.Horizontal)
-      .width('100%')
-      .height(40)
-      .backgroundColor('#FFFFFF')
-      .border({ width: { bottom: 1 }, color: '#e5e5e5' })
-      .scrollBar(BarState.Off)
-
-      Scroll() {
-        Column() {
-          if (this.filteredArticles().length === 0) {
-            Text('暂无知识内容')
-              .fontSize(14)
-              .fontColor('#999999')
-              .height(160)
-              .width('100%')
-              .textAlign(TextAlign.Center)
-          } else {
-            ForEach(this.filteredArticles(), (item: KnowledgeArticle) => {
-              this.KnowledgeCard(item)
-            }, (item: KnowledgeArticle) => item.id)
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Column() {
+        Scroll() {
+          Row() {
+            ForEach(this.tabs, (tab: string) => {
+              this.TabItem(tab)
+            }, (tab: string) => tab)
           }
+          .padding({ left: 10, right: 10 })
         }
+        .scrollable(ScrollDirection.Horizontal)
         .width('100%')
-        .padding(12)
+        .height(40)
+        .backgroundColor('#FFFFFF')
+        .border({ width: { bottom: 1 }, color: '#e5e5e5' })
+        .scrollBar(BarState.Off)
+
+        Scroll(this.scroller) {
+          Column() {
+            if (this.filteredArticles().length === 0) {
+              EmptyState({
+                title: '暂无知识内容',
+                description: '换个分类看看吧'
+              })
+                .margin({ top: 12 })
+            } else {
+              ForEach(this.filteredArticles(), (item: KnowledgeArticle) => {
+                this.KnowledgeCard(item)
+              }, (item: KnowledgeArticle) => item.id)
+            }
+          }
+          .width('100%')
+          .padding(12)
+        }
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .onScroll(() => {
+          this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 300;
+        })
       }
-      .layoutWeight(1)
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#f5f5f5')
+
+      BackToTop({
+        visible: this.showBackToTop,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#f5f5f5')
   }
 }

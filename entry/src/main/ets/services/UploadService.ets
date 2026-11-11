@@ -2,6 +2,8 @@ import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { picker, fileIo } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
+import { ApiEmptyResponse, ApiEnvironment, ApiResult } from '../api/ApiConfig';
+import { HttpClient } from '../api/HttpClient';
 import { LogUtil } from '../utils/LogUtil';
 
 /** 图片体积上限：10MB；文档体积上限：50MB。 */
@@ -85,6 +87,22 @@ export class UploadService {
     }
     LogUtil.info('upload', `pickDocuments count=${files.length}`);
     return files;
+  }
+
+  /**
+   * 直传二进制到后端给的上传地址（对象存储/社区图片）。
+   * 这里真正调用 HttpClient.putBinary；401/网络失败会以 ApiError 抛出，调用方必须提示。
+   */
+  static async uploadToUrl(uploadUrl: string, token: string, file: PickedFile,
+    apiEnvironment: string = ApiEnvironment.PRODUCTION,
+    contentType: string = 'application/octet-stream'): Promise<ApiResult<ApiEmptyResponse>> {
+    if (uploadUrl.trim().length === 0) {
+      throw new Error('上传地址为空');
+    }
+    const type = contentType.length > 0 ? contentType :
+      (file.mimeType.length > 0 ? file.mimeType : 'application/octet-stream');
+    LogUtil.info('upload', `put url=${uploadUrl} bytes=${file.size} type=${type}`);
+    return await HttpClient.putBinary<ApiEmptyResponse>(uploadUrl, token, file.data, type, apiEnvironment);
   }
 
   /** 读取指定 URI 到 ArrayBuffer。 */

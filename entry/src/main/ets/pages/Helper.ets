@@ -17,6 +17,7 @@ export struct Helper {
   @State inputText: string = '';
   @State isAIReplying: boolean = false;
   private aiSession: AiSession | null = null;
+  private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
     this.load();
@@ -25,6 +26,17 @@ export struct Helper {
   async load(): Promise<void> {
     const cached = await CacheStore.getJson<ChatMessage[]>(this.context, 'helperMessages', MockData.initialMessages());
     this.messages = cached.filter((item: ChatMessage) => item.id.indexOf('ai-pending') !== 0);
+    this.scrollToBottom();
+  }
+
+  /** 等布局完成后再滚到底，保证新气泡进入可见区域（m1）。 */
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      try {
+        this.scroller.scrollEdge(Edge.Bottom);
+      } catch (_) {
+      }
+    }, 50);
   }
 
   async send(content: string): Promise<void> {
@@ -43,6 +55,7 @@ export struct Helper {
     this.messages = this.messages.concat([userMessage, pendingMessage]);
     this.inputText = '';
     this.isAIReplying = true;
+    this.scrollToBottom();
     let accumulated = '';
     const callbacks = new AiCallbacks(
       (chunk: string) => {
@@ -82,6 +95,7 @@ export struct Helper {
       }
     });
     this.messages = updatedMessages;
+    this.scrollToBottom();
   }
 
   clearMessages(): void {
@@ -193,7 +207,7 @@ export struct Helper {
   build() {
     Column() {
       this.Header()
-      Scroll() {
+      Scroll(this.scroller) {
         Column() {
           ForEach(this.messages, (message: ChatMessage) => {
             this.MessageBubble(message)

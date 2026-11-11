@@ -1,10 +1,14 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { CoverImage } from '../components/common/CoverImage';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { PrimaryButton } from '../components/common/PrimaryButton';
 import { PrintOrder } from '../models/MiniProgramModels';
 import { PrintApi } from '../api/PrintApi';
+import { PickedFile, UploadService } from '../services/UploadService';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
+import { LogUtil } from '../utils/LogUtil';
 import { ToastUtil } from '../utils/ToastUtil';
 
 import { PageHeader } from '../components/common/PageHeader';
@@ -16,7 +20,20 @@ struct ServicePrint {
   @State serviceType: string = 'delivery';
   @State priceText: string = '';
   @State loading: boolean = false;
-  @State order: PrintOrder = new PrintOrder('draft', '派送服务', '广东东软学院 SOVO 公寓', '互成一家用户', '', 1, '实验报告.pdf', '', '待提交');
+  @State selectedFile: PickedFile | null = null;
+  @State order: PrintOrder = new PrintOrder('draft', '派送服务', '广东东软学院 SOVO 公寓', '互成一家用户', '', 1, '', '', '待提交');
+  private confirmController: CustomDialogController = new CustomDialogController({
+    builder: ConfirmDialog({
+      title: '确认下单',
+      message: '确认提交打印订单吗？提交后将进入处理流程。',
+      confirmText: '确认下单',
+      onConfirm: () => {
+        this.doSubmit();
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  });
 
   aboutToAppear(): void {
     this.loadPrintInfo();
@@ -53,13 +70,51 @@ struct ServicePrint {
     this.order.count = next;
   }
 
-  async submitOrder(): Promise<void> {
+  /** 文件管理器选择打印文件，读取为内存 ArrayBuffer 以便转 base64 下单。 */
+  async chooseFile(): Promise<void> {
+    try {
+      const picked = await UploadService.pickDocuments(this.context, 1);
+      if (picked.length === 0) {
+        return;
+      }
+      const file: PickedFile = picked[0];
+      const reason = UploadService.checkDocument(file);
+      if (reason.length > 0) {
+        ToastUtil.show(reason);
+        return;
+      }
+      this.selectedFile = file;
+      this.order.fileName = file.name;
+      ToastUtil.show('文件选择成功');
+    } catch (err) {
+      LogUtil.warn('print', `pick document failed ${(err as Error).message}`);
+      ToastUtil.show('文件选择失败，请重试');
+    }
+  }
+
+  removeFile(): void {
+    this.selectedFile = null;
+    this.order.fileName = '';
+    ToastUtil.show('文件已移除');
+  }
+
+  private selectedFileName(): string {
+    const file = this.selectedFile;
+    return file === null ? '' : file.name;
+  }
+
+  private selectedFileSize(): string {
+    const file = this.selectedFile;
+    return file === null ? '' : file.sizeText();
+  }
+
+  submitOrder(): void {
     if (!this.serviceOpen) {
       ToastUtil.show('打印服务暂未开启');
       return;
     }
-    if (this.order.fileName.trim().length === 0) {
-      ToastUtil.show('请填写要打印的文件名');
+    if (this.selectedFile === null) {
+      ToastUtil.show('请先选择要打印的文件');
       return;
     }
     if (this.order.phone.trim().length === 0) {
@@ -70,11 +125,24 @@ struct ServicePrint {
       ToastUtil.show('请填写收货地址');
       return;
     }
+    this.confirmController.open();
+  }
+
+  async doSubmit(): Promise<void> {
+    const file = this.selectedFile;
+    if (file === null) {
+      ToastUtil.show('请先选择要打印的文件');
+      return;
+    }
+    if (this.loading) {
+      return;
+    }
     this.loading = true;
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
-      const result = await PrintApi.createOrder(token, this.order, env);
+      const fileDataUrl = `data:${file.mimeType};base64,${file.base64()}`;
+      const result = await PrintApi.createOrder(token, this.order, env, fileDataUrl);
       const created = result === null ? this.order : result;
       if (created.createdAt.length === 0) {
         created.createdAt = new Date().toLocaleString();
@@ -240,14 +308,56 @@ struct ServicePrint {
       }
 
       this.FormLabel('上传文件')
-      TextInput({ placeholder: '点击选择文件 (支持 PDF，DOCS，DOC)', text: this.order.fileName })
-        .height(52)
+      if (this.selectedFile !== null) {
+        Row() {
+          Text('📄')
+            .fontSize(22)
+            .margin({ right: 10 })
+          Column() {
+            Text(this.selectedFileName())
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor('#333333')
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.selectedFileSize())
+              .fontSize(12)
+              .fontColor('#999999')
+              .margin({ top: 3 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          Text('移除')
+            .fontSize(13)
+            .fontColor('#FF3B30')
+            .padding({ left: 10, right: 4, top: 6, bottom: 6 })
+            .onClick(() => {
+              this.removeFile();
+            })
+        }
+        .width('100%')
+        .padding({ left: 14, right: 10, top: 10, bottom: 10 })
         .backgroundColor('#F8F9FA')
         .borderRadius(14)
+      } else {
+        Row() {
+          Text('点击选择文件 (支持 PDF，DOCS，DOC)')
+            .fontSize(14)
+            .fontColor('#999999')
+            .layoutWeight(1)
+          Text('选择')
+            .fontSize(14)
+            .fontColor('#007AFF')
+        }
+        .width('100%')
+        .height(52)
         .padding({ left: 14, right: 14 })
-        .onChange((value: string) => {
-          this.order.fileName = value;
+        .backgroundColor('#F8F9FA')
+        .borderRadius(14)
+        .onClick(() => {
+          this.chooseFile();
         })
+      }
 
       this.FormLabel('打印份数')
       Row() {
@@ -302,18 +412,16 @@ struct ServicePrint {
         .lineHeight(18)
         .margin({ top: 10 })
 
-      Button(this.loading ? '下单中...' : '立即下单')
-        .width('100%')
-        .height(50)
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(25)
-        .margin({ top: 18 })
-        .onClick(() => {
+      PrimaryButton({
+        text: '立即下单',
+        loading: this.loading,
+        buttonHeight: 50,
+        buttonRadius: 25,
+        onTap: () => {
           this.submitOrder();
-        })
+        }
+      })
+        .margin({ top: 18 })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')

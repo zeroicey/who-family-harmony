@@ -1,4 +1,5 @@
 import { KnowledgeArticle } from '../models/MiniProgramModels';
+import { DYNAMIC_PROGRAMMING_MARKDOWN } from './KnowledgeContent';
 
 export class KnowledgeMock {
   static knowledgeTabs(): string[] {
@@ -44,26 +45,7 @@ export class KnowledgeMock {
    * 小程序 article.vue 对任意 id 都渲染同一篇正文，这里保持同样行为。
    */
   static dpMarkdownBlocks(): string[] {
-    return [
-    "# 动态规划经典题",
-    "> 掌握动态规划思想，刷透 LeetCode 经典 DP 问题",
-    "## 什么是动态规划？",
-    "动态规划（Dynamic Programming，简称 DP）是一种通过把原问题分解为相对简单的子问题的方式求解复杂问题的方法。动态规划常常适用于有**重叠子问题**和**最优子结构性质**的问题。",
-    "### 核心思想",
-    "1. **重叠子问题**：问题可以分解为子问题，且这些子问题会重复出现\n2. **最优子结构**：问题的最优解包含其子问题的最优解\n3. **无后效性**：一旦某个状态确定，它之后的发展只与当前状态有关，而与达到这个状态所经历的路径无关",
-    "---",
-    "## 动态规划解题步骤",
-    "### 1. 定义状态\n明确 dp 数组的含义，dp[i] 代表什么？",
-    "### 2. 状态转移方程\n找出状态之间的关系，如何从已知状态推导出未知状态？",
-    "### 3. 初始化\n确定初始条件，dp[0]、dp[1] 等边界值",
-    "### 4. 计算顺序\n确保计算每个状态时，它所依赖的状态已经计算过",
-    "---",
-    "## 经典题型详解",
-    "### 1. 爬楼梯问题",
-    "**问题描述：**\n假设你正在爬楼梯。需要 n 阶你才能到达楼顶。每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？",
-    "**思路分析：**\n- 要爬到第 n 阶，只能从第 n-1 阶爬 1 步，或从第 n-2 阶爬 2 步\n- 因此：dp[n] = dp[n-1] + dp[n-2]",
-    "**代码实现：**\n\\"
-    ];
+    return [DYNAMIC_PROGRAMMING_MARKDOWN];
   }
 
   /** 拼接为 Markdown 源文本，供 MarkdownView 渲染。 */

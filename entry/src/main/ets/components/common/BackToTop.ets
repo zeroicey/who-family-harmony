@@ -1,4 +1,4 @@
-import { AppColors, AppShadow } from '../../theme/Theme';
+import { AppShadow } from '../../theme/Theme';
 
 /**
  * 回到顶部悬浮按钮。
@@ -32,7 +32,8 @@ export struct BackToTop {
       .width(this.buttonSize)
       .height(this.buttonSize)
       .borderRadius(this.buttonSize / 2)
-      .backgroundColor(AppColors.bgCard)
+      // 白底白箭头会不可见；与小程序一致用半透明绿色底。
+      .backgroundColor('rgba(26, 173, 25, 0.8)')
       .shadow(AppShadow.floating)
       .margin({ right: this.marginRight, bottom: this.marginBottom })
       .onClick(() => {

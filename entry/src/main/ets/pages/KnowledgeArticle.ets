@@ -24,8 +24,10 @@ struct KnowledgeArticlePage {
   async load(): Promise<void> {
     const params = router.getParams() as RouteParams;
     const id = params && params.id ? params.id : 'k-1';
+    // 正文是随包静态内容，必须优先使用当前 Mock，避免读到旧版本缓存导致截断。
     const fallback = MockData.knowledgeArticles().find((item: KnowledgeArticle) => item.id === id) || MockData.knowledgeArticles()[0];
-    this.article = await CacheStore.getJson<KnowledgeArticle>(this.context, `knowledge:${id}`, fallback);
+    this.article = fallback;
+    await CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${id}`, fallback);
   }
 
   private levelBg(): string {

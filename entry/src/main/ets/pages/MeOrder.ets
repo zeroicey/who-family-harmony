@@ -7,19 +7,23 @@ import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { EmptyState } from '../components/common/EmptyState';
 import { PageHeader } from '../components/common/PageHeader';
+import { Skeleton } from '../components/common/Skeleton';
 @Entry
 @Component
 struct MeOrder {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State orders: PrintOrder[] = MockData.printOrders();
   @State activeFilter: string = 'all';
+  @State loading: boolean = true;
 
   aboutToAppear(): void {
     this.load();
   }
 
   async load(): Promise<void> {
+    this.loading = true;
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
@@ -28,6 +32,8 @@ struct MeOrder {
       await CacheStore.setJson<PrintOrder[]>(this.context, 'printOrders', this.orders);
     } catch (_) {
       this.orders = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', MockData.printOrders());
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -211,49 +217,30 @@ struct MeOrder {
     .shadow({ radius: 6, color: '#14000000', offsetX: 0, offsetY: 2 })
   }
 
-  @Builder
-  EmptyState() {
-    Column() {
-      Text('☰')
-        .fontSize(60)
-        .fontColor('#CCCCCC')
-      Text('暂无订单记录')
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor('#999999')
-        .margin({ top: 12 })
-      Text('您还没有任何打印订单')
-        .fontSize(13)
-        .fontColor('#B0B0B0')
-        .margin({ top: 6 })
-      Button('去打印')
-        .height(40)
-        .fontSize(14)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(20)
-        .margin({ top: 18 })
-        .onClick(() => {
-          this.gotoPrint();
-        })
-    }
-    .justifyContent(FlexAlign.Center)
-    .width('100%')
-    .height(420)
-  }
-
   build() {
     Column() {
       PageHeader({ title: '我的订单' })
       this.FilterTabs()
       Scroll() {
         Column() {
-          if (this.visibleOrders().length > 0) {
+          if (this.loading) {
+            Skeleton({ rows: 4, showAvatar: false })
+              .margin({ top: 10 })
+          } else if (this.visibleOrders().length > 0) {
             ForEach(this.visibleOrders(), (order: PrintOrder) => {
               this.OrderCard(order)
             }, (order: PrintOrder) => order.id)
           } else {
-            this.EmptyState()
+            EmptyState({
+              title: '暂无订单记录',
+              description: '您还没有任何打印订单',
+              actionText: '去打印',
+              cardBg: '#FFFFFF',
+              onAction: () => {
+                this.gotoPrint();
+              }
+            })
+              .margin({ top: 40 })
           }
         }
         .width('100%')

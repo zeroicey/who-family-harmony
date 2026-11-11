@@ -2,9 +2,16 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { CommunityApi } from '../api/CommunityApi';
 import { AppIcon } from '../components/AppIcon';
+import { BackToTop } from '../components/common/BackToTop';
+import { EmptyState } from '../components/common/EmptyState';
 import { NetImage } from '../components/common/NetImage';
+import { Skeleton } from '../components/common/Skeleton';
+import { Tag } from '../components/common/Tag';
 import { CommunityPost } from '../models/CommunityPost';
+import { CommunityMock } from '../mock/CommunityMock';
 import { AuthStore } from '../stores/AuthStore';
+import { CacheStore } from '../stores/CacheStore';
+import { PageResult, PagedListController, ScrollToTop } from '../services/PagedList';
 import { LogUtil } from '../utils/LogUtil';
 import { ErrandTask, MockData } from '../utils/MockData';
 
@@ -27,20 +34,62 @@ export struct Community {
   @State posts: CommunityPost[] = [];
   @State errandTasks: ErrandTask[] = MockData.errandTasks();
   @State currentTab: string = 'dynamic';
+  @State loading: boolean = true;
+  @State refreshing: boolean = false;
+  @State showBackToTop: boolean = false;
+  private scroller: Scroller = new Scroller();
+  private pager: PagedListController<CommunityPost> =
+    new PagedListController<CommunityPost>((cursor: string) => this.loadPosts(cursor));
 
   aboutToAppear(): void {
-    this.refresh();
+    this.loadFirstPage();
   }
 
-  async refresh(): Promise<void> {
+  /** 第一页失败时优先用缓存/CommunityMock，保持可浏览（m2）。 */
+  private async loadPosts(cursor: string): Promise<PageResult<CommunityPost>> {
     const token = await AuthStore.getToken(this.context);
     const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
     try {
-      this.posts = await CommunityApi.recommend(token, apiEnvironment);
+      const posts = await CommunityApi.recommend(token, apiEnvironment, cursor);
+      const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
+      const repeated = cursor.length > 0 && nextCursor === cursor;
+      if (cursor.length === 0) {
+        await CacheStore.setJson<CommunityPost[]>(this.context, 'communityPosts', posts);
+      }
+      return new PageResult<CommunityPost>(posts, repeated ? '' : nextCursor, posts.length > 0 && !repeated);
     } catch (err) {
-      LogUtil.warn('community', `recommend failed ${(err as Error).message}`);
-      this.posts = [];
+      LogUtil.warn('community', `recommend failed cursor=${cursor} ${(err as Error).message}`);
+      if (cursor.length > 0) {
+        throw new Error('加载更多失败，请重试');
+      }
+      const cached = await CacheStore.getJson<CommunityPost[]>(this.context, 'communityPosts', CommunityMock.posts());
+      const fallback = cached.length > 0 ? cached : CommunityMock.posts();
+      return new PageResult<CommunityPost>(fallback, '', false);
     }
+  }
+
+  async loadFirstPage(): Promise<void> {
+    this.loading = true;
+    await this.pager.refresh();
+    this.posts = this.pager.items;
+    this.loading = false;
+    this.showBackToTop = false;
+  }
+
+  async onRefresh(): Promise<void> {
+    if (this.refreshing) {
+      return;
+    }
+    this.refreshing = true;
+    await this.pager.reload();
+    this.posts = this.pager.items;
+    this.refreshing = false;
+    this.showBackToTop = false;
+  }
+
+  async loadMore(): Promise<void> {
+    await this.pager.loadMore();
+    this.posts = this.pager.items;
   }
 
   private tabs(): CommunityTab[] {
@@ -210,13 +259,15 @@ export struct Community {
             .textAlign(TextAlign.Center)
             .backgroundColor('#6e8efb')
             .borderRadius(20)
-          Text(this.brandText(post))
-            .fontSize(10)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .padding({ left: 7, right: 7, top: 2, bottom: 2 })
-            .backgroundColor('#ff9a56')
-            .borderRadius(4)
+          Tag({
+            text: this.brandText(post),
+            fgColor: '#FFFFFF',
+            bgColor: '#ff9a56',
+            fontSize: 10,
+            tagRadius: 4,
+            tagPaddingH: 7,
+            tagPaddingV: 2
+          })
             .margin({ bottom: -7 })
         }
         .width(50)
@@ -309,17 +360,29 @@ export struct Community {
 
   @Builder DynamicList() {
     Column() {
-      if (this.filteredPosts().length === 0) {
-        Text('暂无动态')
-          .fontSize(14)
-          .fontColor('#999999')
-          .height(160)
-          .width('100%')
-          .textAlign(TextAlign.Center)
+      if (this.loading && this.filteredPosts().length === 0) {
+        Skeleton({ rows: 4, showAvatar: true })
+          .margin({ left: 12, right: 12, top: 12 })
+      } else if (this.filteredPosts().length === 0) {
+        EmptyState({
+          title: '暂无动态',
+          description: '下拉刷新，或稍后再来看看',
+          actionText: '重新加载',
+          onAction: () => {
+            this.onRefresh();
+          }
+        })
+          .margin({ top: 12 })
       } else {
         ForEach(this.filteredPosts(), (post: CommunityPost) => {
           this.PostCard(post)
         }, (post: CommunityPost) => post.id)
+        Text(this.pager.footerText())
+          .fontSize(12)
+          .fontColor('#999999')
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .padding({ top: 16, bottom: 24 })
       }
     }
     .width('100%')
@@ -432,23 +495,48 @@ export struct Community {
         .backgroundColor('#FFFFFF')
         .shadow({ radius: 10, color: '#0D000000', offsetX: 0, offsetY: 2 })
 
-        Scroll() {
-          if (this.currentTab === 'dynamic') {
-            this.DynamicList()
-          } else if (this.currentTab === 'errand') {
-            this.ErrandList()
-          } else if (this.currentTab === 'secondhand') {
-            this.EmptyTab('二手功能开发中...')
-          } else {
-            this.EmptyTab('评分功能开发中...')
+        Refresh({ refreshing: $$this.refreshing }) {
+          Scroll(this.scroller) {
+            if (this.currentTab === 'dynamic') {
+              this.DynamicList()
+            } else if (this.currentTab === 'errand') {
+              this.ErrandList()
+            } else if (this.currentTab === 'secondhand') {
+              this.EmptyTab('二手功能开发中...')
+            } else {
+              this.EmptyTab('评分功能开发中...')
+            }
           }
+          .width('100%')
+          .height('100%')
+          .backgroundColor('#f8f8f8')
+          .scrollBar(BarState.Off)
+          .onScroll(() => {
+            this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 300;
+          })
+          .onScrollEdge((side: Edge) => {
+            if (side === Edge.Bottom && this.currentTab === 'dynamic') {
+              this.loadMore();
+            }
+          })
         }
         .layoutWeight(1)
-        .backgroundColor('#f8f8f8')
+        .onRefreshing(() => {
+          this.onRefresh();
+        })
       }
       .width('100%')
       .height('100%')
       .backgroundColor('#f8f8f8')
+
+      BackToTop({
+        visible: this.showBackToTop,
+        marginBottom: 146,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
 
       Button('+')
         .width(50)
