@@ -28,8 +28,10 @@ export class TaskApi {
     return result.data === null ? [] : result.data;
   }
 
-  static async add(token: string, task: StudyTask, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
-    await HttpClient.post<ApiEmptyResponse>('/checkin/addTodo', token, new AddTaskPayload(task), apiEnvironment);
+  /** 后端 data 为新建任务 id；失败时由调用方降级为本地 id。 */
+  static async add(token: string, task: StudyTask, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<string> {
+    const result = await HttpClient.post<string>('/checkin/addTodo', token, new AddTaskPayload(task), apiEnvironment);
+    return result.data === null ? '' : result.data;
   }
 
   static async done(token: string, id: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<void> {
