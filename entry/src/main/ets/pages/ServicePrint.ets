@@ -1,3 +1,4 @@
+import { DateUtil } from '../utils/DateUtil';
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { CoverImage } from '../components/common/CoverImage';
@@ -216,9 +217,9 @@ struct ServicePrint {
         remoteId.length > 0 ? remoteId : `local-${Date.now()}`,
         this.order.type, this.order.address, this.order.name, this.order.phone, this.order.count,
         this.order.fileName, this.order.remark, '待处理',
-        result !== null && result.createdAt !== undefined && result.createdAt.length > 0
-          ? result.createdAt : new Date().toLocaleString());
-      created.startOrderTime = new Date().toLocaleString();
+        result !== null && result.createdAt !== undefined && result.createdAt !== null && result.createdAt.length > 0
+          ? result.createdAt : DateUtil.nowText());
+      created.startOrderTime = DateUtil.nowText();
       await CacheStore.setJson<PrintOrder>(this.context, 'lastPrintOrder', created);
       const history = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
       const merged = [created].concat(history.filter((item: PrintOrder) => `${item.id}` !== created.id));

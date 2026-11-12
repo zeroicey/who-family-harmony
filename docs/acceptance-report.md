@@ -816,3 +816,47 @@ P2B-01–P2B-04 四项 Minor 均已关闭，招聘、助手、知识三条回归
 **不通过：Blocker 0 / Major 2 / Minor 6。**
 
 P2.10–P2.29 的页面主体、协议全文、服务入口与 30 条路由静态可达性总体完成；但快递成功页不展示订单（M1）、打印下单成功链路未适配后端返回与数字 id（M2）均影响核心下单结果，必须修复后复验。m1–m6 可随修复一并处理。
+
+---
+
+## 复验：最终验收缺陷修复（2026-11-12）
+
+### 复验范围与环境
+
+| 项 | 值 |
+| --- | --- |
+| 被验收提交 | `feat/harmony-parity` @ `d5b2c53` |
+| 参考实现 | `../who_family_wechat` @ `47896e3`，工作区干净，未修改 |
+| 设备 | HarmonyOS 模拟器 `127.0.0.1:5555`，`OpenHarmony-6.1.1.115` |
+| 构建 | `./scripts/build.sh`：PASS；`entry-default-unsigned.hap` 已重新 `hdc install -r` 成功 |
+| 静态检查 | `./scripts/lint.sh`：PASS；`Errors: 0; Warns: 18; Suggestions: 0` |
+| 复验方式 | 只复验原报告 2 Major + 6 Minor 及受影响链路，未重跑完整 30 页矩阵 |
+
+### 逐项结论
+
+| 缺陷 | 结论 | 复验证据 | 剩余风险 |
+| --- | --- | --- | --- |
+| M1 快递成功页显示真实订单 | **PASS** | 实机走 Service → 快递代取 → 立即下单；成功页显示订单号 `express-1794461139576`、收货地址 `学校 广东东软学院 J4`、快递大小 `中件`、重量 `1-5kg`、费用 `¥7.00`、创建时间，六项齐全。代码：`entry/src/main/ets/pages/ServiceSuccess.ets:75-96`、`:189-209`。截图：[`p2fix-express-success.png`](acceptance/screenshots/p2fix-express-success.png) | 创建时间使用系统默认 `toLocaleString()`，本机显示 `11/12/2026, 1:25:39 PM`（英文日期格式），与参考的 `zh-CN` 格式风格不同；不影响字段完整性，未计入本轮 8 项缺陷 |
+| M2 打印下单返回契约与数字 id | **PASS（静态）/ NOT TESTED（真实下单）** | `PrintApi` 将 `/print/order` 返回建模为 `{ id, createdAt? }`（`api/PrintApi.ets:13-17`、`:58-63`）；`ServicePrint` 仅取返回 id，缺失时生成本地 id，并把提交表单字段合并为 `PrintOrder`，同时写入 `lastPrintOrder` 与 `printOrders`（`pages/ServicePrint.ets:211-227`）；成功页把参数与缓存 id 统一为字符串后按 `orderId` 查找（`pages/ServicePrintSuccess.ets:28-55`）。按限制未真实提交生产打印订单 | 运行态成功跳转与后端真实返回形状未实测；若后端返回 `createdAt: null`，`result.createdAt.length` 仍可能抛错（非常规返回） |
+| m1 设置页假箭头 | **PASS** | 实机设置页：当前环境、当前后端地址、版本信息、应用标识四行均无 `›`；个人资料、收货地址、我的订单、关于、用户协议、隐私政策、检测连接等可点击行仍保留 `›`。代码：`pages/MeSetting.ets:184-188`、`:231-283`、`:336-349`。截图：[`p2fix-setting.png`](acceptance/screenshots/p2fix-setting.png) | 应用标识行仍挂有空分支 `onClick`，但已无箭头与视觉可点击暗示；不影响本项 |
+| m2 我的订单空数组空态 | **PASS** | 静态移除 `MockData` 顶替，`remote` 直接归一化（`pages/MeOrder.ets:55-58`），空数组进入 `EmptyState`（`:263-279`）。受控实机验证：用本机 mock 服务经 `hdc rport` 让 `/print/self-orders` 返回 `data: []`，我的订单显示“暂无订单记录 / 您还没有任何打印订单 / 去打印”。截图：[`p2fix-order-empty.png`](acceptance/screenshots/p2fix-order-empty.png)；生产订单列表对照：[`p2fix-order-list.png`](acceptance/screenshots/p2fix-order-list.png) | 无；已切回生产后端并重新拉取订单恢复缓存 |
+| m3 人流/课表标题 | **PASS** | 实机标题分别为“校园人流数据”“课表查询”。代码：`pages/ServicePersonInfo.ets:1011`、`pages/ServiceSchedule.ets:824`；参考 `../who_family_wechat/pages.json` 同名。截图：[`p2fix-personinfo.png`](acceptance/screenshots/p2fix-personinfo.png)、[`p2fix-schedule.png`](acceptance/screenshots/p2fix-schedule.png) | 无 |
+| m4 快递成功页「查看订单」 | **PASS** | 实机点击「查看订单」后 `replaceUrl` 到 `ServiceExpress` 并传入 `showOrders: true`，页面滚动到“我的代取订单”并显示刚创建订单 `express-1794461139576`。代码：`pages/ServiceSuccess.ets:250-255`、`pages/ServiceExpress.ets:35-38`、`:112-123`、`:669-693`。截图：[`p2fix-express-vieworder.png`](acceptance/screenshots/p2fix-express-vieworder.png) | 本机订单列表只展示最近 5 条（原有 `slice(0, 5)`）；旧订单不在此卡片可见，属于既有设计 |
+| m5 协议任务状态 | **PASS** | `docs/parity-plan.md:157-158` 的 P2.25 / P2.26 均为 `DONE 2026-11-12 @coding-agent-B（全文分段迁移，保留生效日期）` | 无 |
+| m6 任务筛选计数与勾选同步 | **PASS** | 实机初始“全部 4 / 待完成 4 / 已完成 0”；勾选“跑步三千米”后变为“全部 4 / 待完成 3 / 已完成 1”，勾选图标变为 `✓`；切到“已完成”仅显示该条；再次取消后恢复“全部 4 / 待完成 4 / 已完成 0”并显示已完成空态。代码：`pages/TaskPage.ets:299-336`、`:529-531`、`:135-156`。截图：[`p2fix-task-before.png`](acceptance/screenshots/p2fix-task-before.png)、[`p2fix-task-toggled.png`](acceptance/screenshots/p2fix-task-toggled.png)、[`p2fix-task-filter-done.png`](acceptance/screenshots/p2fix-task-filter-done.png) | 复验通过 `TaskApi.todo` 恢复原任务状态，界面提示“已标记为待完成”；生产任务最终为原状态 |
+
+### 数据与仓库恢复
+
+- 复验新增 1 条本地演示快递订单（`express-1794461139576`）用于 M1/m4；按约定未删除，未写入生产。
+- 任务勾选后已再次勾选恢复为“待完成”，并以“已标记为待完成”Toast 确认接口成功；最终筛选计数为 4/4/0。
+- 我的订单空态验证使用本机临时 mock 与 `hdc rport`，验证后已停止 mock、移除端口转发，并切回生产后端、重新拉取订单恢复缓存。
+- 未提交打印订单、未修改参考仓库、未修改 `entry/`；未读取或回显 token、API key、JWT、签名材料。
+
+### 非本批观察
+
+- 本轮 `CodeLinter` 为 0 error / 18 warning，较基线 14 warning 增加 4 条（均为性能建议），不阻塞放行，建议后续收口。
+- 快递订单创建时间使用系统 locale（英文格式）；如需与小程序逐字对齐，可单独登记为后续 Minor，不在本次 8 项复验范围内。
+
+### 复验结论
+
+**8 项全部 PASS；FAIL 0。** 其中 M2 为静态契约 PASS、真实打印下单运行态 `NOT TESTED`（生产写入限制）。原 2 Major + 6 Minor 均已修复，受影响链路（快递下单成功页、查看订单定位、打印成功页代码路径、我的订单空态、任务状态同步、设置/标题）未发现回归，建议放行。

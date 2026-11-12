@@ -99,7 +99,7 @@ struct TaskPage {
       ToastUtil.show('任务内容不能超过50个字');
       return;
     }
-    const nowText = new Date().toLocaleString();
+    const nowText = DateUtil.nowText();
     let task = new StudyTask(DateUtil.nowId('task'), title, title, DateUtil.todayText(), '待完成', nowText);
     this.newTaskTitle = '';
     this.nextQuote();

@@ -1,3 +1,4 @@
+import { DateUtil } from '../utils/DateUtil';
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { ExpressOrder, ServiceSuccessParams } from '../models/ExpressOrder';
@@ -100,7 +101,7 @@ struct ServiceSuccess {
   }
 
   private createdAtText(value: string): string {
-    return value.length > 0 ? value : new Date().toLocaleString();
+    return value.length > 0 ? value : DateUtil.nowText();
   }
 
   private amountText(count: number): string {
@@ -231,7 +232,7 @@ struct ServiceSuccess {
   DefaultCard() {
     Column() {
       this.CardHeader('🧾', this.typeText, '待处理')
-      this.InfoRow('提交时间:', new Date().toLocaleString())
+      this.InfoRow('提交时间:', DateUtil.nowText())
       this.InfoRow('处理方式:', '校内服务人员线下确认')
     }
     .alignItems(HorizontalAlign.Start)

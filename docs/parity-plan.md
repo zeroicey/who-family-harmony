@@ -246,6 +246,7 @@ P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F1
 | 2026-11-12 | 合并与适配 | 合并 A/B 分支；`ServiceExpress`/`ServicePrint` 适配 `AddressItem.alias/fullAddress`；`ServicePrint` 成功页补 `orderId` |
 | 2026-11-12 | P2.29 | 入口与死链检查：首页更多服务、我的快捷入口/功能卡/设置、服务聚合互跳全部可达；「消息」补明确提示反馈 |
 | 2026-11-12 | 验收修复 | 修复最终验收 M1/M2/m1–m6：成功页异步数据用 `loaded` 门控重建（参数化 @Builder 不刷新）、快递成功页构造类实例、打印订单只取返回 id 并统一字符串、订单空态不再用 Mock 顶替、设置信息行去掉假箭头、标题对齐参考、任务筛选计数与 ForEach 键修正、快递成功页「查看订单」定位到本机订单 |
+| 2026-11-12 | 复验收尾 | 7 项复验 PASS、M2 静态 PASS；时间文案统一为 `DateUtil.nowText()`（避免英文 AM/PM），并补 `createdAt: null` 防护 |
 | 2026-11-11 | P2.16 / P2.24 / P2.27–P2.29 | 决策：`Service` / `ServiceExpress` / `ServiceSuccess` / `MeSetting` 全部保留并完善，纳入验收 |
 | 2026-11-11 | 工具链 | 新增 `scripts/` 预检、构建、检查、截图脚本；新增 dev/accept 两个项目级 skill |
 | 2026-11-11 | P0.1–P0.3 | 新增 `docs/baseline.md`、`docs/reference-inventory.md`；截图约定 `<page>-<state>.png`；修复截图脚本 `.jpeg` 后缀问题 |

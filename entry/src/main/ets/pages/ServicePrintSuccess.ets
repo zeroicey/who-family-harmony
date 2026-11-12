@@ -1,3 +1,4 @@
+import { DateUtil } from '../utils/DateUtil';
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { PrintOrder } from '../models/MiniProgramModels';
@@ -59,7 +60,7 @@ struct ServicePrintSuccess {
   }
 
   private createdAtText(): string {
-    return this.order.createdAt.length > 0 ? this.order.createdAt : new Date().toLocaleString();
+    return this.order.createdAt.length > 0 ? this.order.createdAt : DateUtil.nowText();
   }
 
   /** 参考实现无金额字段：按价格文案中的单价 × 份数给出预估，最终以商家报价为准。 */

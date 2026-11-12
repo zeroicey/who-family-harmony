@@ -1,3 +1,4 @@
+import { DateUtil } from '../utils/DateUtil';
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { ExpressOrder } from '../models/ExpressOrder';
@@ -132,7 +133,7 @@ struct ServiceExpress {
     }
     this.submitting = true;
     const address = this.selectedAddress;
-    const nowText = new Date().toLocaleString();
+    const nowText = DateUtil.nowText();
     const order = new ExpressOrder(
       `express-${Date.now()}`,
       `${address.id}`,
