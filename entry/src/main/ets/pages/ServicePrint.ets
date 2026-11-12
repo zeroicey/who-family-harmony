@@ -210,7 +210,8 @@ struct ServicePrint {
       const fileDataUrl = `data:${file.mimeType};base64,${file.base64()}`;
       const result = await PrintApi.createOrder(token, this.order, env, fileDataUrl);
       // 参考实现只使用返回的 id，其余字段以提交表单为准；id 统一转字符串。
-      const remoteId = result === null || result.id === 0 ? '' : `${result.id}`;
+      const remoteId = result === null || result.id === undefined || result.id === null || result.id === 0
+        ? '' : `${result.id}`;
       const created = new PrintOrder(
         remoteId.length > 0 ? remoteId : `local-${Date.now()}`,
         this.order.type, this.order.address, this.order.name, this.order.phone, this.order.count,
