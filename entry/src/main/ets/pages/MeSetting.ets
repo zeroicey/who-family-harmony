@@ -181,9 +181,11 @@ struct MeSetting {
           .fontColor('#999999')
           .margin({ right: 8 })
       }
-      Text('›')
-        .fontSize(20)
-        .fontColor('#C7C7CC')
+      if (url.length > 0 || action.length > 0) {
+        Text('›')
+          .fontSize(20)
+          .fontColor('#C7C7CC')
+      }
     }
     .width('100%')
     .height(52)
@@ -236,10 +238,6 @@ struct MeSetting {
       Text(ApiConfig.environmentLabel(this.environment))
         .fontSize(13)
         .fontColor('#999999')
-        .margin({ right: 8 })
-      Text('›')
-        .fontSize(20)
-        .fontColor('#C7C7CC')
     }
     .width('100%')
     .height(52)
@@ -258,10 +256,6 @@ struct MeSetting {
       Text(ApiConfig.currentBaseUrl(this.environment))
         .fontSize(13)
         .fontColor('#999999')
-        .margin({ right: 8 })
-      Text('›')
-        .fontSize(20)
-        .fontColor('#C7C7CC')
     }
     .width('100%')
     .height(52)
@@ -280,10 +274,6 @@ struct MeSetting {
       Text(this.versionLabel())
         .fontSize(13)
         .fontColor('#999999')
-        .margin({ right: 8 })
-      Text('›')
-        .fontSize(20)
-        .fontColor('#C7C7CC')
     }
     .width('100%')
     .height(52)

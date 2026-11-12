@@ -11,6 +11,10 @@ import { ToastUtil } from '../utils/ToastUtil';
 import { NetImage } from '../components/common/NetImage';
 import { PageHeader } from '../components/common/PageHeader';
 
+class ExpressRouteParams {
+  showOrders: boolean = false;
+}
+
 @Entry
 @Component
 struct ServiceExpress {
@@ -25,8 +29,12 @@ struct ServiceExpress {
   @State localOrders: ExpressOrder[] = [];
   @State showAddressPicker: boolean = false;
   @State submitting: boolean = false;
+  private scroller: Scroller = new Scroller();
+  private scrollToOrders: boolean = false;
 
   aboutToAppear(): void {
+    const params = router.getParams() as ExpressRouteParams;
+    this.scrollToOrders = params !== undefined && params !== null && params.showOrders === true;
     this.loadAddresses();
     this.loadLocalOrders();
   }
@@ -103,6 +111,15 @@ struct ServiceExpress {
 
   async loadLocalOrders(): Promise<void> {
     this.localOrders = await CacheStore.getJson<ExpressOrder[]>(this.context, 'expressOrders', []);
+    if (this.scrollToOrders) {
+      this.scrollToOrders = false;
+      setTimeout(() => {
+        try {
+          this.scroller.scrollEdge(Edge.Bottom);
+        } catch (_) {
+        }
+      }, 200);
+    }
   }
 
   async placeOrder(): Promise<void> {
@@ -653,7 +670,7 @@ struct ServiceExpress {
     Stack({ alignContent: Alignment.Center }) {
       Column() {
         PageHeader({ title: '快递代取' })
-        Scroll() {
+        Scroll(this.scroller) {
           Column() {
             NetImage({
               imageUrl: 'https://api.hcyj.xyz/images/dngg.jpg',

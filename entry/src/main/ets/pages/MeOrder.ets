@@ -4,7 +4,6 @@ import { PrintOrder } from '../models/MiniProgramModels';
 import { PrintApi } from '../api/PrintApi';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
-import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
 import { EmptyState } from '../components/common/EmptyState';
@@ -14,7 +13,7 @@ import { Skeleton } from '../components/common/Skeleton';
 @Component
 struct MeOrder {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
-  @State orders: PrintOrder[] = MockData.printOrders();
+  @State orders: PrintOrder[] = [];
   @State activeFilter: string = 'all';
   @State loading: boolean = true;
 
@@ -54,11 +53,11 @@ struct MeOrder {
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
       const remote = await PrintApi.selfOrders(token, env);
-      this.orders = remote.length > 0 ? remote.map((raw: PrintOrder) => this.normalizeOrder(raw)) :
-        MockData.printOrders();
+      // 与参考一致：后端返回空数组时展示空态，不用演示订单顶替。
+      this.orders = remote.map((raw: PrintOrder) => this.normalizeOrder(raw));
       await CacheStore.setJson<PrintOrder[]>(this.context, 'printOrders', this.orders);
     } catch (_) {
-      const cached = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', MockData.printOrders());
+      const cached = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
       this.orders = cached.map((raw: PrintOrder) => this.normalizeOrder(raw));
     } finally {
       this.loading = false;

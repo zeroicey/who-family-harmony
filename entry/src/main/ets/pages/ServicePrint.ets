@@ -209,11 +209,19 @@ struct ServicePrint {
     try {
       const fileDataUrl = `data:${file.mimeType};base64,${file.base64()}`;
       const result = await PrintApi.createOrder(token, this.order, env, fileDataUrl);
-      const created = result === null ? this.order : result;
-      if (created.createdAt.length === 0) {
-        created.createdAt = new Date().toLocaleString();
-      }
+      // 参考实现只使用返回的 id，其余字段以提交表单为准；id 统一转字符串。
+      const remoteId = result === null || result.id === 0 ? '' : `${result.id}`;
+      const created = new PrintOrder(
+        remoteId.length > 0 ? remoteId : `local-${Date.now()}`,
+        this.order.type, this.order.address, this.order.name, this.order.phone, this.order.count,
+        this.order.fileName, this.order.remark, '待处理',
+        result !== null && result.createdAt !== undefined && result.createdAt.length > 0
+          ? result.createdAt : new Date().toLocaleString());
+      created.startOrderTime = new Date().toLocaleString();
       await CacheStore.setJson<PrintOrder>(this.context, 'lastPrintOrder', created);
+      const history = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
+      const merged = [created].concat(history.filter((item: PrintOrder) => `${item.id}` !== created.id));
+      await CacheStore.setJson<PrintOrder[]>(this.context, 'printOrders', merged);
       ToastUtil.show('下单成功');
       router.pushUrl({ url: 'pages/ServicePrintSuccess', params: { type: 'print', orderId: created.id } });
     } catch (err) {

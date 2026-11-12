@@ -18,6 +18,7 @@ struct ServicePrintSuccess {
   private params: PrintSuccessParams = new PrintSuccessParams();
   @State order: PrintOrder = new PrintOrder();
   @State priceText: string = '';
+  @State loaded: boolean = false;
 
   aboutToAppear(): void {
     this.params = router.getParams() as PrintSuccessParams;
@@ -25,19 +26,32 @@ struct ServicePrintSuccess {
   }
 
   async loadOrder(): Promise<void> {
-    this.order = await CacheStore.getJson<PrintOrder>(this.context, 'lastPrintOrder', new PrintOrder());
+    const cached = await CacheStore.getJson<PrintOrder>(this.context, 'lastPrintOrder', new PrintOrder());
+    this.order = this.normalizeOrder(cached);
     this.priceText = await CacheStore.getString(this.context, 'printPriceText', '');
     const orderId = (this.params === null || this.params === undefined || this.params.orderId === undefined)
-      ? '' : this.params.orderId;
+      ? '' : `${this.params.orderId}`;
     if (orderId.length > 0 && this.order.id !== orderId) {
       const orders = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
-      const found = orders.find((item: PrintOrder) => item.id === orderId);
+      const found = orders.find((item: PrintOrder) => `${item.id}` === orderId);
       if (found !== undefined) {
-        this.order = found;
+        this.order = this.normalizeOrder(found);
       } else {
         ToastUtil.show('订单信息加载失败');
       }
     }
+    this.loaded = true;
+  }
+
+  /** 后端/缓存中的 id 可能是数字，统一归一为字符串。 */
+  private normalizeOrder(raw: PrintOrder): PrintOrder {
+    const order = new PrintOrder(
+      raw.id === undefined || raw.id === null ? '' : `${raw.id}`,
+      raw.type, raw.address, raw.name, raw.phone, raw.count,
+      raw.fileName, raw.remark, raw.status, raw.createdAt);
+    order.startOrderTime = raw.startOrderTime === undefined ? '' : raw.startOrderTime;
+    order.endOrderTime = raw.endOrderTime === undefined ? '' : raw.endOrderTime;
+    return order;
   }
 
   private orderIdText(): string {
@@ -172,7 +186,15 @@ struct ServicePrintSuccess {
           .width('100%')
           .padding({ top: 30 })
 
-          this.OrderCard()
+          if (this.loaded) {
+            this.OrderCard()
+          } else {
+            LoadingProgress()
+              .width(36)
+              .height(36)
+              .color('#FF6B00')
+              .margin({ top: 60 })
+          }
         }
         .width('100%')
         .padding({ left: 20, right: 20, bottom: 120 })

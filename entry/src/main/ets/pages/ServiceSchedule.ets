@@ -821,7 +821,7 @@ struct ServiceSchedule {
   build() {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
-        PageHeader({ title: '课程表' })
+        PageHeader({ title: '课表查询' })
         Scroll() {
           Column() {
             this.HeaderSection()

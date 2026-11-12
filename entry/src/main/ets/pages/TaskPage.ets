@@ -299,20 +299,30 @@ struct TaskPage {
       .padding({ left: 24, right: 24, top: 18, bottom: 10 })
   }
 
+  private countFor(label: string): number {
+    if (label === '待完成') {
+      return this.todoCount();
+    }
+    if (label === '已完成') {
+      return this.doneCount();
+    }
+    return this.tasks.length;
+  }
+
   @Builder
   FilterBar() {
     Row() {
-      this.FilterChip('全部', this.tasks.length)
-      this.FilterChip('待完成', this.todoCount())
-      this.FilterChip('已完成', this.doneCount())
+      this.FilterChip('全部')
+      this.FilterChip('待完成')
+      this.FilterChip('已完成')
     }
     .width('100%')
     .padding({ left: 20, right: 20, bottom: 12 })
   }
 
   @Builder
-  FilterChip(label: string, count: number) {
-    Text(`${label} ${count}`)
+  FilterChip(label: string) {
+    Text(`${label} ${this.countFor(label)}`)
       .fontSize(13)
       .fontWeight(this.activeFilter === label ? FontWeight.Bold : FontWeight.Normal)
       .fontColor(this.activeFilter === label ? '#FFFFFF' : '#5F6B7A')
@@ -518,7 +528,7 @@ struct TaskPage {
             } else {
               ForEach(this.visibleTasks(), (task: StudyTask) => {
                 this.TaskItem(task)
-              }, (task: StudyTask) => task.id)
+              }, (task: StudyTask) => `${task.id}-${task.status}-${task.title}`)
             }
           }
           .width('100%')

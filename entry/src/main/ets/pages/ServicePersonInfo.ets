@@ -1008,7 +1008,7 @@ struct ServicePersonInfo {
 
   build() {
     Column() {
-      PageHeader({ title: '人流监测' })
+      PageHeader({ title: '校园人流数据' })
       Scroll() {
         Column() {
           this.HeaderCard()

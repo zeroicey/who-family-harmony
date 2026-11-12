@@ -10,6 +10,12 @@ class PrintOpenResponse {
   isOpen: boolean = false;
 }
 
+/** /print/order 只保证返回新建订单 id（参考实现仅读取 data.id）。 */
+export class PrintOrderCreated {
+  id: number = 0;
+  createdAt: string = '';
+}
+
 class PrintOrderPayload {
   type: string = '';
   address: string = '';
@@ -50,8 +56,8 @@ export class PrintApi {
 
   /** fileDataUrl 形如 data:application/pdf;base64,...；为空时后端会拒绝。 */
   static async createOrder(token: string, order: PrintOrder, apiEnvironment: string = ApiEnvironment.PRODUCTION,
-    fileDataUrl: string = ''): Promise<PrintOrder | null> {
-    const result = await HttpClient.post<PrintOrder>('/print/order', token,
+    fileDataUrl: string = ''): Promise<PrintOrderCreated | null> {
+    const result = await HttpClient.post<PrintOrderCreated>('/print/order', token,
       new PrintOrderPayload(order, fileDataUrl), apiEnvironment);
     return result.data;
   }

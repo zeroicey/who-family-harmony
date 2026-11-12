@@ -20,6 +20,7 @@ struct ServiceSuccess {
   @State expressOrder: ExpressOrder = new ExpressOrder();
   @State priceText: string = '';
   @State orderFound: boolean = false;
+  @State loaded: boolean = false;
 
   aboutToAppear(): void {
     const params = router.getParams() as ServiceSuccessParams;
@@ -42,35 +43,56 @@ struct ServiceSuccess {
   }
 
   async loadPrintOrder(): Promise<void> {
-    const orderId = this.params.orderId === undefined ? '' : this.params.orderId;
+    const orderId = this.params.orderId === undefined ? '' : `${this.params.orderId}`;
     this.priceText = await CacheStore.getString(this.context, 'printPriceText', '');
-    this.printOrder = await CacheStore.getJson<PrintOrder>(this.context, 'lastPrintOrder', new PrintOrder());
+    const cached = await CacheStore.getJson<PrintOrder>(this.context, 'lastPrintOrder', new PrintOrder());
+    this.printOrder = this.normalizePrintOrder(cached);
     if (orderId.length > 0 && this.printOrder.id !== orderId) {
       const orders = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
-      const found = orders.find((item: PrintOrder) => item.id === orderId);
+      const found = orders.find((item: PrintOrder) => `${item.id}` === orderId);
       if (found !== undefined) {
-        this.printOrder = found;
+        this.printOrder = this.normalizePrintOrder(found);
       }
     }
     this.orderFound = this.printOrder.id.length > 0;
     if (!this.orderFound && orderId.length > 0) {
       ToastUtil.show('订单信息加载失败');
     }
+    this.loaded = true;
+  }
+
+  /** 后端 id 可能是数字，统一归一为字符串，避免 `.length` 取不到值。 */
+  private normalizePrintOrder(raw: PrintOrder): PrintOrder {
+    const order = new PrintOrder(
+      raw.id === undefined || raw.id === null ? '' : `${raw.id}`,
+      raw.type, raw.address, raw.name, raw.phone, raw.count,
+      raw.fileName, raw.remark, raw.status, raw.createdAt);
+    order.startOrderTime = raw.startOrderTime === undefined ? '' : raw.startOrderTime;
+    order.endOrderTime = raw.endOrderTime === undefined ? '' : raw.endOrderTime;
+    return order;
   }
 
   async loadExpressOrder(): Promise<void> {
-    const orderId = this.params.orderId === undefined ? '' : this.params.orderId;
+    const orderId = this.params.orderId === undefined ? '' : `${this.params.orderId}`;
     const orders = await CacheStore.getJson<ExpressOrder[]>(this.context, 'expressOrders', []);
-    const found = orders.find((item: ExpressOrder) => item.id === orderId);
+    const found = orders.find((item: ExpressOrder) => `${item.id}` === orderId);
     if (found !== undefined) {
-      this.expressOrder = found;
+      this.expressOrder = this.normalizeExpressOrder(found);
       this.orderFound = true;
     } else if (orders.length > 0 && orderId.length === 0) {
-      this.expressOrder = orders[0];
+      this.expressOrder = this.normalizeExpressOrder(orders[0]);
       this.orderFound = true;
     } else if (orderId.length > 0) {
       ToastUtil.show('订单信息加载失败');
     }
+    this.loaded = true;
+  }
+
+  /** JSON 解析出的是纯对象；构造回类实例，保证 @State 与参数化 @Builder 正常刷新。 */
+  private normalizeExpressOrder(raw: ExpressOrder): ExpressOrder {
+    const order = new ExpressOrder(`${raw.id}`, `${raw.addressId}`, raw.addressDetails, raw.packageSize,
+      raw.estimatedWeight, raw.remark, Number(raw.price), raw.status, raw.createdAt);
+    return order;
   }
 
   private orderIdText(id: string): string {
@@ -229,7 +251,7 @@ struct ServiceSuccess {
     if (this.type === 'print') {
       router.pushUrl({ url: 'pages/MeOrder' });
     } else if (this.type === 'express') {
-      router.replaceUrl({ url: 'pages/ServiceExpress' });
+      router.replaceUrl({ url: 'pages/ServiceExpress', params: { showOrders: true } });
     }
   }
 
@@ -265,7 +287,13 @@ struct ServiceSuccess {
           .width('100%')
           .padding({ top: 30 })
 
-          if (this.type === 'express') {
+          if (!this.loaded) {
+            LoadingProgress()
+              .width(36)
+              .height(36)
+              .color('#FF6B00')
+              .margin({ top: 60 })
+          } else if (this.type === 'express') {
             this.ExpressCard()
           } else if (this.type === 'print') {
             this.PrintCard()

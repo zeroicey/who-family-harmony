@@ -723,3 +723,96 @@ P2.5–P2.9 五个页面的核心链路均可进入、可返回、可滚动，�
 **通过：Blocker 0 / Major 0 / Minor 0（本轮范围）。**
 
 P2B-01–P2B-04 四项 Minor 均已关闭，招聘、助手、知识三条回归链路正常。构建通过、CodeLinter 0 error；无新增 Functional/Behavioral 偏差。
+
+---
+
+## 最终验收 P2.10–P2.29（2026-11-12）
+
+- 提交：`11cdeaea8bc5e8c612fe0e3e3c832f807dc49dbb`（`feat/harmony-parity`）
+- 参考实现：`../who_family_wechat`，提交 `47896e31150215b31e751e1f04427f7a56b53f99`，工作区干净（`git status --porcelain` 为空）
+- 日期：2026-11-12
+- 设备/模拟器：`127.0.0.1:5555`，`emulator`，API 24，系统 `6.1.0.117(SP37DEVC00E115R4P11)`
+- 后端环境：生产 `https://api.hcyj.xyz`
+- 安装包：`entry/build/default/outputs/default/entry-default-unsigned.hap`，SHA-256 `3f43f7a76a5c035ea964c254d600e450e81839e876661672cb0199b9b420f5a2`
+- 构建结果：`hvigorw clean` 后执行 `./scripts/build.sh`，`BUILD SUCCESSFUL in 4s 887ms`
+- CodeLinter：`./scripts/lint.sh`，**0 error / 18 warning**（新增 `ServicePersonInfo.ets:55` Date 复用提示）
+- 安装说明：首次检查发现模拟器仍装 01:23 旧包；12:19 clean 重建并重装后复测，12:32 再次 clean 构建、重装最终 HAP 后重复关键失败用例。以下结论以重装后的包为准。
+
+### 全局门槛
+
+| ID | 结果 | 证据 / 备注 |
+| --- | --- | --- |
+| G1 构建 | PASS | clean 后 `assembleHap` 成功，HAP 存在；最终 HAP 已 `hdc install -r` 成功 |
+| G2 静态检查 | PASS | `Defects: 18; Errors: 0; Warns: 18; Suggestions: 0` |
+| G3 仓库卫生 | PASS | `git ls-files` 无 `env.ets`、签名、`.hvigor/`、`build/`、`oh_modules/`；本轮只新增报告与截图 |
+| G4 参考实现完整性 | PASS | 参考仓库 HEAD `47896e3`，工作区干净，未修改 |
+| G5 路由完整 | PASS（静态 30/30）/ NOT TESTED（全量运行 P4） | `main_pages.json` 30 条；30 个页面文件均存在且均有 `@Entry`；按 `router.pushUrl/replaceUrl`、Tab 宿主与动态 `route` 构造路由图，30/30 从 `pages/Index` 可达，所有目标均在路由表内 |
+| G6 演示数据链路 | PASS（正常接口）/ 降级未重跑 | 生产 token 可读取首页、订单等真实数据；本轮未重复制造 401/断网场景 |
+| G7 密钥安全 | PASS | 报告与本轮日志未记录 token、API key、JWT、签名材料；未读取或回显 `env.ets` 值 |
+| G8 截图证据 | PASS（本批次，P2.21 运行态缺失） | P2.10–P2.29 关键页与关键状态均已截图或引用既有截图；P2.21 因未写生产订单，无真实成功页截图；未覆盖全部 30 页默认态 |
+
+### 页面结果
+
+| 页面 / 任务 | 结果 | 已验证项 | 缺陷 | 截图 |
+| --- | --- | --- | --- | --- |
+| P2.10 我的 `Mine` | PASS | 资料头、快捷导航 5 项、任务/专注摘要、我的动态、多图预览、回顶、资料返回刷新；消息入口 Toast 为已登记偏差 | — | [`p2final-mine-latest.png`](acceptance/screenshots/p2final-mine-latest.png) |
+| P2.11 个人资料 `MeProfile` | PASS（相册选图 NOT TESTED） | 字段/长度限制/下拉选择/保存返回与全局刷新代码路径；原值保存已由施工方实测并恢复 | — | `p2c-*` |
+| P2.12 地址三页 | PASS | 列表、默认标识、新增、编辑、删除确认、默认回补；`alias/fullAddress` 与数字 id 适配；快递/打印复用地址簿 | — | `p2c-address-*.png` |
+| P2.13 我的订单 `MeOrder` | PASS（空态路径 Minor） | 四状态筛选、卡片字段、数字 id 归一化、去打印跳转；当前生产订单可正常展示 | m2 | `p2c-order-*.png` |
+| P2.14 反馈 `MeFeedback` | PASS（选图 NOT TESTED） | 类型/正文 500 字计数/最多 3 图入口/联系方式/FAQ/1.5s 模拟提交与返回；相册为空，检查与入列未实测 | — | 既有 `p2c-feedback-default.png` 等（本轮未重拍） |
+| P2.15 关于 `MeAbout` | PASS | 渐变头图、平台定位、核心模块、我们的优势、页脚；与参考区块一致 | — | 既有 `p2c-*` |
+| P2.16 设置 `MeSetting` | PASS（Minor） | 缓存清理确认、生产/本地切换、当前后端地址、检测连接、版本、关于/协议入口、会话重置；最终 HAP 下环境行点击仍无动作 | m1 | [`p2final-setting-default-latest.png`](acceptance/screenshots/p2final-setting-default-latest.png) |
+| P2.17 人流 `ServicePersonInfo` | PASS（标题 Minor） | 三类地点、地点胶囊、实时/预测双栏、5 槽位、天气/建议、刷新节奏；标题与 `pages.json` 不一致 | m3 | [`p2final-personinfo-latest.png`](acceptance/screenshots/p2final-personinfo-latest.png) |
+| P2.18 课表 `ServiceSchedule` | PASS（查询/AI NOT TESTED） | 学期/周次、查询表单、课程详情与空态代码路径；无有效学号密码，未发起真实查询；标题不一致 | m3 | [`p2final-schedule-latest.png`](acceptance/screenshots/p2final-schedule-latest.png) |
+| P2.19 成绩 `ServiceGrade` | PASS（查询/AI NOT TESTED） | 统计卡/GPA/学期筛选/成绩详情代码路径；无有效凭据，未发起真实查询 | — | [`p2final-grade-latest.png`](acceptance/screenshots/p2final-grade-latest.png) |
+| P2.20 打印 `ServicePrint` | **FAIL（静态）** | 服务关闭态、价格卡、文件选择/大小校验/预览、份数、取件/派送、地址簿、手机号校验 UI 均存在；真实下单受“禁止写生产数据”限制未执行 | M2 | [`p2final-print-default.png`](acceptance/screenshots/p2final-print-default.png) |
+| P2.21 打印成功 `ServicePrintSuccess` | **FAIL（静态）** | 页面结构、状态色、返回首页/查看订单按钮存在；后端返回与数字 id 未归一化，成功页订单号/查找会失败 | M2 | 无真实成功订单截图（NOT TESTED） |
+| P2.22 专注 `FocusPage` | PASS（满 10 分钟 NOT TESTED） | 开始/放弃确认/结束、不足 10 分钟拒绝、今日分钟同步 | — | [`p2final-focus-latest.png`](acceptance/screenshots/p2final-focus-latest.png) |
+| P2.23 任务 `TaskPage` | PASS（Minor） | 全部/待完成/已完成筛选切换、完成切换、详情弹层、增删改、空态、远程+本地兜底；筛选计数不更新 | m6 | [`p2final-task-latest.png`](acceptance/screenshots/p2final-task-latest.png) |
+| P2.24 快递代取 `ServiceExpress` | **FAIL** | 地址选择/新增、大小重量计价（¥7.00）、备注、校验、本地订单列表、演示提示均正常；下单跳转后成功页不展示该订单 | M1、m4 | [`p2final-express-default.png`](acceptance/screenshots/p2final-express-default.png)、[`p2final-express-orders-latest.png`](acceptance/screenshots/p2final-express-orders-latest.png) |
+| P2.25 用户协议 `AgreementUser` | PASS | 全文归一化比对与参考完全一致（1264 字）；首段、8 个章节、联系方式、更新/生效日期 `2025年4月22日` 一致；可滚到底 | — | [`p2final-agreement-user-latest.png`](acceptance/screenshots/p2final-agreement-user-latest.png)、[`p2final-agreement-user-bottom-latest.png`](acceptance/screenshots/p2final-agreement-user-bottom-latest.png) |
+| P2.26 隐私政策 `AgreementPrivacy` | PASS | 全文归一化比对与参考完全一致（781 字）；引言、收集/使用/共享、联系方式、日期 `2025年4月22日` 一致；可滚到底 | — | [`p2final-agreement-privacy-latest.png`](acceptance/screenshots/p2final-agreement-privacy-latest.png)、[`p2final-agreement-privacy-bottom-latest.png`](acceptance/screenshots/p2final-agreement-privacy-bottom-latest.png) |
+| P2.27 服务聚合 `Service` | PASS | 校园查询/打印快递/生活服务分组；人流、课表、成绩、打印、快递、订单、地址入口均正确；首页“更多服务”可达 | — | [`p2final-service-default.png`](acceptance/screenshots/p2final-service-default.png)、[`p2final-home-more-service.png`](acceptance/screenshots/p2final-home-more-service.png) |
+| P2.28 通用成功 `ServiceSuccess` | **FAIL** | `type=express` 标题/文案/按钮正确；订单卡未显示刚创建的本地订单；“查看订单”回下单表单 | M1、m4 | [`p2final-express-success-final-hap.png`](acceptance/screenshots/p2final-express-success-final-hap.png)、[`p2final-express-vieworder-final-hap.png`](acceptance/screenshots/p2final-express-vieworder-final-hap.png) |
+| P2.29 入口与死链 | PASS（Minor） | 首页“更多服务”、我的快捷入口/功能卡/设置、服务聚合、地址/订单/打印/快递互跳可达；路由图 30/30；设置页仍有带箭头无动作行 | m1 | 同上 |
+
+### 缺陷清单
+
+| 编号 | 级别 | 页面 / 任务 | 描述 | 复现步骤 | 期望 / 实际 | 文件 / 截图 |
+| --- | --- | --- | --- | --- | --- | --- |
+| M1 | **Major** | P2.24 / P2.28 快递成功页 | 快递下单成功页始终渲染默认 `ExpressOrder()`。缓存已写入真实订单，`CacheStore` 日志为 `get key=expressOrders hit=true`、`json parsed`，本地订单列表也能展示同样订单，但成功页未使用查找结果 | Service → 快递代取 → 立即下单；在最终 HAP 上重复执行 | 期望展示真实订单号、收货地址、大小/重量、¥7.00、创建时间；实际固定显示 `订单号: draft`、`收货地址: 未填写`、`预估费用: ¥0.00` | `entry/src/main/ets/pages/ServiceSuccess.ets:61-73`、`:167-190`；[`p2final-express-success-final-hap.png`](acceptance/screenshots/p2final-express-success-final-hap.png)；对照 [`p2final-express-orders-latest.png`](acceptance/screenshots/p2final-express-orders-latest.png) |
+| M2 | **Major（静态）** | P2.20 / P2.21 打印下单成功链路 | `/print/order` 返回值被直接当作完整 `PrintOrder`；参考实现仅读取 `data.id` 并用提交表单构造本地订单，且参考以 `parseInt` 处理数字订单 id。当前 `created.createdAt.length` 在仅返回 id 时会抛错；即便返回完整订单，数字 id 也会使 `orderId.length` 与 `this.order.id.length` 取不到值 | 选择文件 → 填写表单 → 下单（生产写入限制，未实际提交） | 期望合并提交表单与返回 id、将 id 统一为字符串后传入成功页；实际会在下单成功后提示失败，或成功页订单号显示 `draft` 且按 orderId 查找失败 | `entry/src/main/ets/pages/ServicePrint.ets:211-218`；`entry/src/main/ets/pages/ServicePrintSuccess.ets:30-45`；同类路径 `ServiceSuccess.ets:44-55`；参考 `../who_family_wechat/store/modules/print.js` |
+| m1 | Minor | P2.16 / P2.29 设置页 | 四个信息行带 `›` 箭头但无任何点击效果：当前环境、当前后端地址、版本信息、应用标识；其中应用标识走 `SettingRow` 的空 URL 分支 | 设置页点击“当前环境”“当前后端地址”“版本信息”“应用标识” | 期望要么可展开/复制/跳转，要么移除箭头；实际无响应、无 Toast | `entry/src/main/ets/pages/MeSetting.ets:172-200`、`:230-291`、`:358`；[`p2final-setting-default-latest.png`](acceptance/screenshots/p2final-setting-default-latest.png) |
+| m2 | Minor | P2.13 我的订单 | 后端成功返回空数组时被 `MockData.printOrders()` 顶替，用户看不到参考实现的订单空态 | 使用无订单账号进入“我的订单”（或让 `/print/self-orders` 返回 `[]`） | 期望“暂无订单记录 / 您还没有任何打印订单 / 去打印”；实际显示演示订单，误导为真实记录 | `entry/src/main/ets/pages/MeOrder.ets:56-59`；参考 `../who_family_wechat/pages/me/order/index.vue` 空态分支 |
+| m3 | Minor | P2.17 / P2.18 页面标题 | 标题与参考 `pages.json` 不一致 | 进入人流/课表页看顶部标题 | 期望“校园人流数据”“课表查询”；实际“人流监测”“课程表” | `ServicePersonInfo.ets:1011`、`ServiceSchedule.ets:824`；[`p2final-personinfo-latest.png`](acceptance/screenshots/p2final-personinfo-latest.png)、[`p2final-schedule-latest.png`](acceptance/screenshots/p2final-schedule-latest.png) |
+| m4 | Minor | P2.24 / P2.28 快递成功页 | “查看订单”对快递执行 `replaceUrl('pages/ServiceExpress')`，回到下单表单而非本地订单记录 | 快递成功页点击“查看订单” | 期望看到本地代取订单列表/记录，或隐藏该按钮；实际回到空白下单表单 | `entry/src/main/ets/pages/ServiceSuccess.ets:228-233`；[`p2final-express-vieworder-final-hap.png`](acceptance/screenshots/p2final-express-vieworder-final-hap.png) |
+| m5 | Minor | P2.25 / P2.26 文档 | 协议全文已完成并实机验证，但施工清单仍标 `TODO` | 查看 `docs/parity-plan.md` 协议表 | 期望状态改为 `DONE` 并附验证说明；实际仍为 `TODO` | `docs/parity-plan.md:157-158` |
+| m6 | Minor | P2.23 任务页筛选 | 列表已渲染 4 条任务，但“全部/待完成/已完成”计数均为 `0`；点击切换筛选、退出后重新进入仍为 `0` | 我的 → 任务待办 → 查看筛选栏 | 期望“全部 4 / 待完成 4 / 已完成 0”；实际三项均为 0，与列表内容矛盾 | `entry/src/main/ets/pages/TaskPage.ets:303-307`、`:314-317`；[`p2final-task-latest.png`](acceptance/screenshots/p2final-task-latest.png) |
+
+### 允许偏差
+
+- `Mine` 快捷导航“消息”：参考实现无跳转；鸿蒙版增加 Toast“消息功能暂未开放”，属 P2.29 计划内主动反馈，不计缺陷。
+- `Service` / `ServiceExpress` / `ServiceSuccess` / `MeSetting` 为鸿蒙增强页，标题与信息组织不完全对应未注册的小程序死代码，按产品决策保留，不计缺陷。
+- 无登录页、无微信登录、无微信好友/朋友圈分享、无支付：沿用既有产品决策与平台差异，不计缺陷。
+- AI 真实流式输出、头像/反馈选图上传、课表/成绩真实查询、打印真实下单、专注满 10 分钟记录：环境或生产数据限制，标 `NOT TESTED`，不计运行态缺陷；M2 为静态代码契约缺陷，单独登记。
+
+### NOT TESTED
+
+- 头像选择/上传、反馈选图、打印文件真实上传：模拟器相册为空；打印提交还受“禁止写生产数据”限制。
+- 课表/成绩真实查询与 AI 分析：缺少有效学号/密码；`DASHSCOPE_API_KEY` 无效，AI 真实输出按既有约定不计缺陷。
+- 打印真实下单成功页、订单号回填与 `orderId` 运行态匹配：未写生产数据，仅做代码审查。
+- 专注满 10 分钟记录/完成弹窗：未等待完整计时。
+- A2 无 token、A3 401、A4 断网、A7 分页、A8 重复提交：本轮未重新构造，沿用前序验证据。
+- P4 全量 30 路由各进出 2 次：仅完成静态 30/30 可达与关键路径实机抽查。
+
+### 数据与仓库
+
+- 本轮未修改 `entry/`、构建配置或参考仓库；仅追加本报告与 `docs/acceptance/screenshots/p2final-*` 截图。
+- 本轮验收共新增 5 条本地演示快递订单（`expressOrders` 缓存），未提交后端；未创建、修改或删除任何生产订单、地址、动态或评论。
+- 未读取或回显 `DEMO_TOKEN`、`DASHSCOPE_API_KEY`、JWT 或签名材料。
+
+### 结论
+
+**不通过：Blocker 0 / Major 2 / Minor 6。**
+
+P2.10–P2.29 的页面主体、协议全文、服务入口与 30 条路由静态可达性总体完成；但快递成功页不展示订单（M1）、打印下单成功链路未适配后端返回与数字 id（M2）均影响核心下单结果，必须修复后复验。m1–m6 可随修复一并处理。
