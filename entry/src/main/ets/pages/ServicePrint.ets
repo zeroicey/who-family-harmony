@@ -3,8 +3,9 @@ import { router } from '@kit.ArkUI';
 import { CoverImage } from '../components/common/CoverImage';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { PrimaryButton } from '../components/common/PrimaryButton';
-import { PrintOrder } from '../models/MiniProgramModels';
+import { AddressItem, PrintOrder } from '../models/MiniProgramModels';
 import { PrintApi } from '../api/PrintApi';
+import { UserApi } from '../api/UserApi';
 import { PickedFile, UploadService } from '../services/UploadService';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
@@ -21,7 +22,8 @@ struct ServicePrint {
   @State priceText: string = '';
   @State loading: boolean = false;
   @State selectedFile: PickedFile | null = null;
-  @State order: PrintOrder = new PrintOrder('draft', '派送服务', '广东东软学院 SOVO 公寓', '互成一家用户', '', 1, '', '', '待提交');
+  @State defaultAddress: AddressItem | null = null;
+  @State order: PrintOrder = new PrintOrder('draft', '派送服务', '', '互成一家用户', '', 1, '', '', '待提交');
   private confirmController: CustomDialogController = new CustomDialogController({
     builder: ConfirmDialog({
       title: '确认下单',
@@ -37,6 +39,52 @@ struct ServicePrint {
 
   aboutToAppear(): void {
     this.loadPrintInfo();
+    this.loadDefaultAddress();
+  }
+
+  onPageShow(): void {
+    this.loadDefaultAddress();
+  }
+
+  private addressText(): string {
+    const address = this.defaultAddress;
+    return address === null ? '' : `${address.area}${address.detail}`;
+  }
+
+  /** 复用「我的地址」：优先默认地址，其次第一条；本地缓存兜底。 */
+  async loadDefaultAddress(): Promise<void> {
+    let addresses: AddressItem[] = [];
+    const token = await AuthStore.getToken(this.context);
+    const env = await AuthStore.getApiEnvironment(this.context);
+    try {
+      addresses = await UserApi.loadAddresses(token, env);
+    } catch (err) {
+      LogUtil.warn('print', `load addresses failed ${(err as Error).message}`);
+    }
+    if (addresses.length === 0) {
+      addresses = await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', []);
+    }
+    let selected: AddressItem | null = null;
+    for (let index = 0; index < addresses.length; index++) {
+      if (addresses[index].isDefault) {
+        selected = addresses[index];
+        break;
+      }
+    }
+    if (selected === null && addresses.length > 0) {
+      selected = addresses[0];
+    }
+    this.defaultAddress = selected;
+    if (selected !== null) {
+      if (this.serviceType === 'delivery') {
+        this.order.address = `${selected.area}${selected.detail}`;
+      }
+      if (this.order.phone.trim().length === 0) {
+        this.order.phone = selected.phone;
+      }
+    } else if (this.serviceType === 'delivery') {
+      this.order.address = '';
+    }
   }
 
   async loadPrintInfo(): Promise<void> {
@@ -54,11 +102,11 @@ struct ServicePrint {
 
   private setServiceType(type: string): void {
     this.serviceType = type;
-    this.order.type = type === 'pickup' ? '自己上门取件' : '派送服务';
-    if (type === 'pickup') {
-      this.order.address = '广东东软学院图书馆4楼sovo互成一家工位';
-    } else {
-      this.order.address = '广东东软学院 SOVO 公寓';
+    this.order.type = type === 'pickup' ? '上门取件' : '派送服务';
+    this.order.address = type === 'delivery' ? this.addressText() : '';
+    const address = this.defaultAddress;
+    if (this.order.phone.trim().length === 0 && address !== null) {
+      this.order.phone = address.phone;
     }
   }
 
@@ -117,18 +165,36 @@ struct ServicePrint {
       ToastUtil.show('请先选择要打印的文件');
       return;
     }
-    if (this.order.phone.trim().length === 0) {
+    if (this.serviceType === 'delivery' && this.defaultAddress === null) {
+      ToastUtil.show('请选择收货地址');
+      return;
+    }
+    if (this.serviceType === 'pickup' && this.order.phone.trim().length === 0) {
       ToastUtil.show('请填写联系电话');
       return;
     }
-    if (this.serviceType === 'delivery' && this.order.address.trim().length === 0) {
-      ToastUtil.show('请填写收货地址');
+    if (this.serviceType === 'delivery' && this.addressPhone().trim().length === 0) {
+      ToastUtil.show('收货地址缺少联系电话，请完善地址信息');
       return;
     }
+    this.syncOrderFields();
     this.confirmController.open();
   }
 
+  private addressPhone(): string {
+    const address = this.defaultAddress;
+    return address === null ? '' : address.phone;
+  }
+
+  /** 与小程序 PrintForm 的订单字段保持一致。 */
+  private syncOrderFields(): void {
+    this.order.type = this.serviceType === 'pickup' ? '上门取件' : '派送服务';
+    this.order.address = this.serviceType === 'delivery' ? this.addressText() : '';
+    this.order.phone = this.serviceType === 'pickup' ? this.order.phone.trim() : this.addressPhone();
+  }
+
   async doSubmit(): Promise<void> {
+    this.syncOrderFields();
     const file = this.selectedFile;
     if (file === null) {
       ToastUtil.show('请先选择要打印的文件');
@@ -190,8 +256,6 @@ struct ServicePrint {
       .padding(28)
       .backgroundColor('#FFFFFF')
       .borderRadius(18)
-      .position({ x: '7%', y: '28%' })
-      .zIndex(10)
     }
   }
 
@@ -297,14 +361,25 @@ struct ServicePrint {
 
       if (this.serviceType === 'delivery') {
         this.FormLabel('收货地址')
-        TextInput({ placeholder: '请选择或新建地址', text: this.order.address })
-          .height(48)
-          .backgroundColor('#F8F9FA')
-          .borderRadius(14)
-          .padding({ left: 14, right: 14 })
-          .onChange((value: string) => {
-            this.order.address = value;
-          })
+        Row() {
+          Text(this.defaultAddress === null ? '请选择或新建地址' : this.addressText())
+            .fontSize(14)
+            .fontColor(this.defaultAddress === null ? '#999999' : '#333333')
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          Text('›')
+            .fontSize(20)
+            .fontColor('#C7C7CC')
+            .margin({ left: 8 })
+        }
+        .width('100%')
+        .padding({ left: 14, right: 12, top: 12, bottom: 12 })
+        .backgroundColor('#F8F9FA')
+        .borderRadius(14)
+        .onClick(() => {
+          router.pushUrl({ url: 'pages/MeAddress' });
+        })
       }
 
       this.FormLabel('上传文件')
@@ -396,21 +471,28 @@ struct ServicePrint {
       .backgroundColor('#F8F9FA')
       .borderRadius(14)
 
-      this.FormLabel('联系电话')
-      TextInput({ placeholder: '请输入手机号', text: this.order.phone })
-        .height(48)
-        .backgroundColor('#F8F9FA')
-        .borderRadius(14)
-        .padding({ left: 14, right: 14 })
-        .onChange((value: string) => {
-          this.order.phone = value;
+      if (this.serviceType === 'pickup') {
+        this.FormLabel('联系电话')
+        TextInput({
+          placeholder: this.addressPhone().length > 0 ? `默认: ${this.addressPhone()}` : '请输入手机号',
+          text: this.order.phone
         })
+          .height(48)
+          .backgroundColor('#F8F9FA')
+          .borderRadius(14)
+          .padding({ left: 14, right: 14 })
+          .onChange((value: string) => {
+            this.order.phone = value;
+          })
 
-      Text('务必确保手机号可以拨通，因手机号无法拨通导致的问题自行承担')
-        .fontSize(12)
-        .fontColor('#FF6B35')
-        .lineHeight(18)
-        .margin({ top: 10 })
+        Text(this.addressPhone().length > 0 ?
+          '已自动填入默认手机号，可修改。务必确保手机号可以拨通，因手机号无法拨通导致的问题自行承担' :
+          '请填写可以拨通的手机号，务必确保手机号可以拨通，因手机号无法拨通导致的问题自行承担')
+          .fontSize(12)
+          .fontColor('#FF6B35')
+          .lineHeight(18)
+          .margin({ top: 10 })
+      }
 
       PrimaryButton({
         text: '立即下单',
@@ -473,7 +555,18 @@ struct ServicePrint {
         this.InfoRow('上门取件地址：', '广东东软学院图书馆4楼sovo互成一家工位')
         this.InfoRow('营业时间：', '周一至周日 9:00-21:00')
       } else {
-        this.InfoRow('送货上门地址：', this.order.address.length > 0 ? this.order.address : '请先选择收货地址')
+        Row() {
+          Text('送货上门地址：')
+            .fontSize(13)
+            .fontColor('#666666')
+            .width(112)
+          Text(this.order.address.length > 0 ? this.order.address : '请先选择收货地址')
+            .fontSize(13)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .alignItems(VerticalAlign.Top)
+        .margin({ top: 12 })
         this.InfoRow('配送时间：', '工作日 10:00-18:00（节假日顺延）')
       }
     }
@@ -540,33 +633,44 @@ struct ServicePrint {
 
   build() {
     Stack() {
-      Column() {
-        PageHeader({ title: '文件打印' })
-        Scroll() {
-          Column() {
-            CoverImage({
-              imageUrl: 'https://api.hcyj.xyz/images/dnfw.png',
-              title: '',
-              watermarkText: '互成一家 | 校园打印服务',
-              imageHeight: 220,
-              imageRadius: 0
-            })
-            this.IntroCard()
-            this.NoticeCard()
-            this.PriceCard()
-            this.PrintForm()
-            this.ServiceInfoCard()
-            this.WhyUsCard()
-          }
-          .width('100%')
-          .padding({ left: 20, right: 20, bottom: 20 })
+      if (!this.serviceOpen) {
+        Column() {
+          this.ServiceClosedModal()
         }
-        .layoutWeight(1)
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor('#80000000')
+      } else {
+        Column() {
+          PageHeader({ title: '文件打印' })
+          Scroll() {
+            Column() {
+              CoverImage({
+                imageUrl: 'https://api.hcyj.xyz/images/dnfw.png',
+                title: '',
+                watermarkText: '互成一家 | 校园打印服务',
+                imageHeight: 220,
+                imageRadius: 0
+              })
+              this.IntroCard()
+              this.NoticeCard()
+              this.PriceCard()
+              this.PrintForm()
+              this.ServiceInfoCard()
+              this.WhyUsCard()
+            }
+            .width('100%')
+            .padding({ left: 20, right: 20, bottom: 20 })
+          }
+          .layoutWeight(1)
+          .scrollBar(BarState.Off)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#F5F5F7')
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor('#667EEA')
-      this.ServiceClosedModal()
     }
     .width('100%')
     .height('100%')
