@@ -68,9 +68,9 @@ struct ServiceExpress {
   }
 
   private addressText(item: AddressItem): string {
-    const area = item.area.length > 0 ? item.area : '';
-    const detail = item.detail.length > 0 ? item.detail : '';
-    return `${area} ${detail}`.trim();
+    const alias = item.alias.length > 0 ? item.alias : '';
+    const detail = item.fullAddress.length > 0 ? item.fullAddress : '';
+    return `${alias} ${detail}`.trim();
   }
 
   private selectedAddressText(): string {
@@ -118,7 +118,7 @@ struct ServiceExpress {
     const nowText = new Date().toLocaleString();
     const order = new ExpressOrder(
       `express-${Date.now()}`,
-      address.id,
+      `${address.id}`,
       this.addressText(address),
       this.packageSize,
       this.weight,
@@ -607,7 +607,7 @@ struct ServiceExpress {
                 this.selectedAddress = item;
                 this.showAddressPicker = false;
               })
-            }, (item: AddressItem) => item.id)
+            }, (item: AddressItem) => `${item.id}`)
           }
           .width('100%')
         }

@@ -3,7 +3,7 @@
 > 目标：在不重写架构的前提下，把 HarmonyOS 版逐页对齐微信小程序版 `../who_family_wechat`。
 > 本文件是**唯一施工清单**。编码 agent 按 ID 顺序执行并更新状态；验收 agent 依据 `docs/acceptance.md` 独立验收。
 >
-> 最后更新：2026-11-11
+> 最后更新：2026-11-12
 > 基线提交：`688905d`（docs 未提交前）
 > 构建基线：`assembleHap` 通过；CodeLinter 0 error / 14 warning
 
@@ -133,22 +133,22 @@
 
 | ID | 页面 | 当前差距 | 实现要点 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| P2.17 | 人流监测 `ServicePersonInfo.ets` | 静态简化：缺温度/天气图标、实时/预测双栏细节、5 槽位、建议区、刷新节奏 | 迁移 `academic-data.json` 与小程序算法/文案；对齐 `personinfo.vue` 全区块；图表用 `DataPanel`/`Gauge`/`Canvas`，实现前调用 `dataviz` skill | 三类地点切换正确；实时/预测数据与参考逻辑一致；天气区完整；图表配色/结构一致 | TODO |
-| P2.18 | 课表 `ServiceSchedule.ets` | 查询通；缺 AI 分析、学期/周次细节、课程详情弹层、空态 | 对齐 `schedule.vue`；接入 F7 AI 分析；保存学号/密码方式与小程序一致 | 查询/切换周次/详情/AI 分析均可用 | TODO |
-| P2.19 | 成绩 `ServiceGrade.ets` | 查询通；缺 AI 分析、统计卡、学期筛选、详情 | 对齐 `grade.vue`；接入 F7 AI 分析 | 统计/GPA/筛选/AI 分析均可用 | TODO |
-| P2.20 | 打印 `ServicePrint.ets` | 文件名手输；无文件选择/预览/大小；价格与表单细节不足 | 基于 F5 选文件为 base64；对齐 `PrintForm`/`PriceCard`/`ServiceAreaNotice`/`ServiceIntroCard`；份数、地址、校验 | 选文件→下单成功；成功页跳转正确 | TODO |
-| P2.21 | 打印成功 `ServicePrintSuccess.ets` | 细节比对 | 对齐 `print/success.vue` | 订单信息/按钮行为一致 | TODO |
-| P2.22 | 专注 `FocusPage.ets` | 计时/今日分钟已有；缺 <10 分钟拒绝、放弃确认、完成态/文案 | 对齐 `focus/index.vue` 与 `store/modules/focus.js` | 开始/放弃/结束/不足 10 分钟提示与参考一致 | TODO |
-| P2.23 | 任务 `TaskPage.ets` | 基础 CRUD；缺筛选、详情弹层、状态切换细节、空态 | 对齐 `task/index.vue` 与 `store/modules/task.js` | 增删改查/完成切换/筛选/空态一致 | TODO |
-| P2.24 | 快递代取 `ServiceExpress.ets` | 小程序未注册（死代码），鸿蒙版保留但功能简单 | 对齐 `service/express.vue` 的视觉与内容，并补完整流程：收货地址选择（复用地址簿）、快递大小/重量、价格计算、备注、立即下单、本地订单记录、成功页；无后端接口时用本地订单 + 明确演示提示 | 从入口到下单成功全流程可走通；地址/价格/校验正确；返回不丢状态 | TODO |
+| P2.17 | 人流监测 `ServicePersonInfo.ets` | 静态简化：缺温度/天气图标、实时/预测双栏细节、5 槽位、建议区、刷新节奏 | 迁移 `academic-data.json` 与小程序算法/文案；对齐 `personinfo.vue` 全区块；图表用 `DataPanel`/`Gauge`/`Canvas`，实现前调用 `dataviz` skill | 三类地点切换正确；实时/预测数据与参考逻辑一致；天气区完整；图表配色/结构一致 | DONE 2026-11-12 @coding-agent-A（迁移 `data/AcademicData.ets`；三地点切换、实时/预测双栏、无人机/课表数据源文案、天气区、建议区、更新节奏与参考对齐） |
+| P2.18 | 课表 `ServiceSchedule.ets` | 查询通；缺 AI 分析、学期/周次细节、课程详情弹层、空态 | 对齐 `schedule.vue`；接入 F7 AI 分析；保存学号/密码方式与小程序一致 | 查询/切换周次/详情/AI 分析均可用 | DONE 2026-11-12 @coding-agent-A（学期/周次切换、课程详情、空态、F7 流式 AI 分析；AI 真实输出待有效 key） |
+| P2.19 | 成绩 `ServiceGrade.ets` | 查询通；缺 AI 分析、统计卡、学期筛选、详情 | 对齐 `grade.vue`；接入 F7 AI 分析 | 统计/GPA/筛选/AI 分析均可用 | DONE 2026-11-12 @coding-agent-A（统计卡/GPA/学期筛选/成绩详情、F7 流式 AI 分析） |
+| P2.20 | 打印 `ServicePrint.ets` | 文件名手输；无文件选择/预览/大小；价格与表单细节不足 | 基于 F5 选文件为 base64；对齐 `PrintForm`/`PriceCard`/`ServiceAreaNotice`/`ServiceIntroCard`；份数、地址、校验 | 选文件→下单成功；成功页跳转正确 | DONE 2026-11-12 @coding-agent-A（DocumentViewPicker 选文件/大小校验/预览、份数、地址簿复用、价格卡、服务区域说明、成功页带 `orderId`） |
+| P2.21 | 打印成功 `ServicePrintSuccess.ets` | 细节比对 | 对齐 `print/success.vue` | 订单信息/按钮行为一致 | DONE 2026-11-12 @coding-agent-B（按 `orderId` 展示订单信息；查看订单/返回首页按钮） |
+| P2.22 | 专注 `FocusPage.ets` | 计时/今日分钟已有；缺 <10 分钟拒绝、放弃确认、完成态/文案 | 对齐 `focus/index.vue` 与 `store/modules/focus.js` | 开始/放弃/结束/不足 10 分钟提示与参考一致 | DONE 2026-11-12 @coding-agent-B（不足 10 分钟不记录并提示、放弃确认、完成态与今日分钟统计对齐参考 store） |
+| P2.23 | 任务 `TaskPage.ets` | 基础 CRUD；缺筛选、详情弹层、状态切换细节、空态 | 对齐 `task/index.vue` 与 `store/modules/task.js` | 增删改查/完成切换/筛选/空态一致 | DONE 2026-11-12 @coding-agent-B（全部/待完成/已完成筛选、完成切换、详情弹层、空态、远程+本地兜底） |
+| P2.24 | 快递代取 `ServiceExpress.ets` | 小程序未注册（死代码），鸿蒙版保留但功能简单 | 对齐 `service/express.vue` 的视觉与内容，并补完整流程：收货地址选择（复用地址簿）、快递大小/重量、价格计算、备注、立即下单、本地订单记录、成功页；无后端接口时用本地订单 + 明确演示提示 | 从入口到下单成功全流程可走通；地址/价格/校验正确；返回不丢状态 | DONE 2026-11-12 @coding-agent-B（地址簿选择/新增、大小与重量计价、备注、校验、本地订单记录、演示提示、成功页；合并时适配新 `AddressItem.alias/fullAddress`） |
 
 ### 2.5 鸿蒙增强页面（保留并做好）
 
 | ID | 页面 | 目标 | 实现要点 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| P2.27 | 服务聚合 `Service.ets` | 让"更多服务"成为真实入口 | 服务分组（校园查询 / 生活服务 / 打印快递），卡片含图标、标题、描述、状态；跳转人流/课表/成绩/打印/快递；首页"更多服务"指向此页 | 所有卡片可点且目标正确；首页入口打通；无空链接 | TODO |
-| P2.28 | 通用成功 `ServiceSuccess.ets` | 承载快递/其他业务成功态 | 按 `type` 展示标题、订单号、说明、主次按钮；与打印成功页风格统一；返回首页/查看订单 | 快递下单后正确跳转并展示对应文案；按钮可用 | TODO |
-| P2.29 | 额外页面入口与去死链 | 四个增强页面都有明确入口 | `Mine`/`Service`/首页增加设置、服务聚合、快递入口；路由可达；不出现点了没反应的按钮 | 每个页面至少一条可达路径；全量路由无死链 | TODO |
+| P2.27 | 服务聚合 `Service.ets` | 让"更多服务"成为真实入口 | 服务分组（校园查询 / 生活服务 / 打印快递），卡片含图标、标题、描述、状态；跳转人流/课表/成绩/打印/快递；首页"更多服务"指向此页 | 所有卡片可点且目标正确；首页入口打通；无空链接 | DONE 2026-11-12 @coding-agent-B（校园查询/打印快递/生活服务分组、8 个入口、首页「更多服务」→ `pages/Service`） |
+| P2.28 | 通用成功 `ServiceSuccess.ets` | 承载快递/其他业务成功态 | 按 `type` 展示标题、订单号、说明、主次按钮；与打印成功页风格统一；返回首页/查看订单 | 快递下单后正确跳转并展示对应文案；按钮可用 | DONE 2026-11-12 @coding-agent-B（按 `type` 渲染标题/订单号/说明、查看订单/返回首页；快递下单跳转已验证） |
+| P2.29 | 额外页面入口与去死链 | 四个增强页面都有明确入口 | `Mine`/`Service`/首页增加设置、服务聚合、快递入口；路由可达；不出现点了没反应的按钮 | 每个页面至少一条可达路径；全量路由无死链 | DONE 2026-11-12 @orchestrator（首页「更多服务」、我的快捷入口/功能卡/设置、服务聚合、地址/订单/打印/快递互跳全部可达；`QuickNav` 的「消息」与参考一致无跳转，补 Toast 明确反馈避免静默） |
 
 ### 2.6 协议
 
@@ -163,7 +163,7 @@
 
 | ID | 任务 | 实现要点 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| P3.1 | 知识内容迁移 | `static/mock/knowledge/index.js`、`dynamic-programming.js`、`academic-data.json` → 鸿蒙静态数据 | 文章/分类/正文/人流静态数据与参考一致 | TODO |
+| P3.1 | 知识内容迁移 | `static/mock/knowledge/index.js`、`dynamic-programming.js`、`academic-data.json` → 鸿蒙静态数据 | 文章/分类/正文/人流静态数据与参考一致 | DONE 2026-11-12 @coding-agent（知识 28 篇/15 分类/正文由 F11 迁移；`data/AcademicData.ets` 由 P2.17 迁移） |
 | P3.2 | 首页与服务卡内容 | 轮播、服务卡、校园通知、评价、打印价格文案逐项对齐 | 文案/图片 URL/数字一致 | TODO |
 | P3.3 | 全量文案审校 | 逐页对比中文文案、标点、emoji、按钮文字 | 无遗漏/错别字；差异已登记 | TODO |
 
@@ -241,6 +241,10 @@ P0 → F1 → F3 → F2 → F4 → F5 → F6 → F7 → F8 → F9 → F10 → F1
 | 日期 | 任务 | 说明 |
 | --- | --- | --- |
 | 2026-11-11 | — | 初始版本：完成架构评审、页面映射、任务拆分 |
+| 2026-11-12 | P2.17–P2.20 | 校园人流/课表/成绩/打印四页完成；新增 `data/AcademicData.ets`；打印复用地址簿与文件选择 |
+| 2026-11-12 | P2.21–P2.28 | 打印成功/专注/任务/快递/服务聚合/通用成功/协议全文完成；新增 `models/ExpressOrder.ets` |
+| 2026-11-12 | 合并与适配 | 合并 A/B 分支；`ServiceExpress`/`ServicePrint` 适配 `AddressItem.alias/fullAddress`；`ServicePrint` 成功页补 `orderId` |
+| 2026-11-12 | P2.29 | 入口与死链检查：首页更多服务、我的快捷入口/功能卡/设置、服务聚合互跳全部可达；「消息」补明确提示反馈 |
 | 2026-11-11 | P2.16 / P2.24 / P2.27–P2.29 | 决策：`Service` / `ServiceExpress` / `ServiceSuccess` / `MeSetting` 全部保留并完善，纳入验收 |
 | 2026-11-11 | 工具链 | 新增 `scripts/` 预检、构建、检查、截图脚本；新增 dev/accept 两个项目级 skill |
 | 2026-11-11 | P0.1–P0.3 | 新增 `docs/baseline.md`、`docs/reference-inventory.md`；截图约定 `<page>-<state>.png`；修复截图脚本 `.jpeg` 后缀问题 |

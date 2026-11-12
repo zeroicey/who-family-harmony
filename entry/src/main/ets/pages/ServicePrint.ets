@@ -48,7 +48,7 @@ struct ServicePrint {
 
   private addressText(): string {
     const address = this.defaultAddress;
-    return address === null ? '' : `${address.area}${address.detail}`;
+    return address === null ? '' : address.fullAddress;
   }
 
   /** 复用「我的地址」：优先默认地址，其次第一条；本地缓存兜底。 */
@@ -77,7 +77,7 @@ struct ServicePrint {
     this.defaultAddress = selected;
     if (selected !== null) {
       if (this.serviceType === 'delivery') {
-        this.order.address = `${selected.area}${selected.detail}`;
+        this.order.address = selected.fullAddress;
       }
       if (this.order.phone.trim().length === 0) {
         this.order.phone = selected.phone;

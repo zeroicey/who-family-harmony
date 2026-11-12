@@ -476,6 +476,9 @@ export struct Mine {
     .onClick(() => {
       if (url.length > 0) {
         this.openPage(url);
+      } else {
+        // 参考 QuickNav 的「消息」项本身无跳转；这里给明确反馈，避免静默无响应。
+        ToastUtil.show('消息功能暂未开放');
       }
     })
   }
