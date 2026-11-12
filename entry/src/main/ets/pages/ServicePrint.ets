@@ -215,7 +215,7 @@ struct ServicePrint {
       }
       await CacheStore.setJson<PrintOrder>(this.context, 'lastPrintOrder', created);
       ToastUtil.show('下单成功');
-      router.pushUrl({ url: 'pages/ServicePrintSuccess', params: { type: 'print' } });
+      router.pushUrl({ url: 'pages/ServicePrintSuccess', params: { type: 'print', orderId: created.id } });
     } catch (err) {
       ToastUtil.show(`打印下单失败：${(err as Error).message}`);
     } finally {
