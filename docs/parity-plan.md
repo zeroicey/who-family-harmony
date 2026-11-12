@@ -164,8 +164,8 @@
 | ID | 任务 | 实现要点 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
 | P3.1 | 知识内容迁移 | `static/mock/knowledge/index.js`、`dynamic-programming.js`、`academic-data.json` → 鸿蒙静态数据 | 文章/分类/正文/人流静态数据与参考一致 | DONE 2026-11-12 @coding-agent（知识 28 篇/15 分类/正文由 F11 迁移；`data/AcademicData.ets` 由 P2.17 迁移） |
-| P3.2 | 首页与服务卡内容 | 轮播、服务卡、校园通知、评价、打印价格文案逐项对齐 | 文案/图片 URL/数字一致 | TODO |
-| P3.3 | 全量文案审校 | 逐页对比中文文案、标点、emoji、按钮文字 | 无遗漏/错别字；差异已登记 | TODO |
+| P3.2 | 首页与服务卡内容 | 轮播、服务卡、校园通知、评价、打印价格文案逐项对齐 | 文案/图片 URL/数字一致 | DONE 2026-11-12 @coding-agent（P2.1 首页区块对齐；打印价格取 `/print/price` 并缓存兜底） |
+| P3.3 | 全量文案审校 | 逐页对比中文文案、标点、emoji、按钮文字 | 无遗漏/错别字；差异已登记 | DONE 2026-11-12 @acceptance（随最终验收逐页比对，标题两处已修，其余差异登记在 `docs/acceptance-report.md`） |
 
 ---
 
