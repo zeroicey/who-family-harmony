@@ -44,10 +44,10 @@
 | <img src="docs/showcase/personinfo.jpg" width="250"> | <img src="docs/showcase/task.jpg" width="250"> | <img src="docs/showcase/mine.jpg" width="250"> |
 | 实时/预测双栏、天气与环境感知 | 筛选计数、完成切换、快捷新增 | 资料、快捷入口、任务与专注摘要 |
 
-| 快递代取 | 设置 | |
+| 快递代取 | 设置 | 完整画廊 |
 | :---: | :---: | :---: |
-| <img src="docs/showcase/express.jpg" width="250"> | <img src="docs/showcase/settings.jpg" width="250"> | |
-| 地址簿、计价、本机订单与成功页 | 后端环境切换、缓存、协议入口 | |
+| <img src="docs/showcase/express.jpg" width="250"> | <img src="docs/showcase/settings.jpg" width="250"> | <a href="docs/gallery.md"><img src="docs/showcase/pages/service-personinfo.jpg" width="250" alt="页面画廊"></a> |
+| 地址簿、计价、本机订单与成功页 | 后端环境切换、缓存、协议入口 | [查看全部 29 个页面 →](docs/gallery.md) |
 
 ## 功能
 
