@@ -24,7 +24,9 @@ export class Job {
   collected: boolean;
   logoUrl: string;
   positions: number;
+  deliverCount: number;
   endTime: string;
+  createTime: string;
   isHot: boolean;
   isRecommended: boolean;
   isDeliver: boolean;
@@ -57,7 +59,9 @@ export class Job {
     this.collected = collected;
     this.logoUrl = '';
     this.positions = 0;
+    this.deliverCount = 0;
     this.endTime = '';
+    this.createTime = '';
     this.isHot = false;
     this.isRecommended = false;
     this.isDeliver = false;

@@ -1,11 +1,19 @@
 import { common } from '@kit.AbilityKit';
-import { router } from '@kit.ArkUI';
+import { promptAction, router } from '@kit.ArkUI';
 import { CommunityApi } from '../api/CommunityApi';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { BackToTop } from '../components/common/BackToTop';
+import { EmptyState } from '../components/common/EmptyState';
+import { NetImage } from '../components/common/NetImage';
+import { Skeleton } from '../components/common/Skeleton';
+import { Tag } from '../components/common/Tag';
 import { CommunityPost } from '../models/CommunityPost';
+import { CommunityMock } from '../mock/CommunityMock';
 import { AuthStore } from '../stores/AuthStore';
+import { CacheStore } from '../stores/CacheStore';
+import { PageResult, PagedListController, ScrollToTop } from '../services/PagedList';
 import { LogUtil } from '../utils/LogUtil';
+import { ToastUtil } from '../utils/ToastUtil';
 import { ErrandTask, MockData } from '../utils/MockData';
 
 class CommunityTab {
@@ -27,20 +35,79 @@ export struct Community {
   @State posts: CommunityPost[] = [];
   @State errandTasks: ErrandTask[] = MockData.errandTasks();
   @State currentTab: string = 'dynamic';
+  @State loading: boolean = true;
+  @State refreshing: boolean = false;
+  @State footerText: string = '';
+  @State pagerError: string = '';
+  @State showBackToTop: boolean = false;
+  @State previewUrl: string = '';
+  @State followedAuthors: string[] = [];
+  @StorageLink('communityPostDelta') @Watch('onPostDelta') postDelta: string = '';
+  @StorageLink('communityRefreshAt') @Watch('onRefreshSignal') refreshAt: string = '';
+  private scroller: Scroller = new Scroller();
+  private pager: PagedListController<CommunityPost> =
+    new PagedListController<CommunityPost>((cursor: string) => this.loadPosts(cursor));
 
   aboutToAppear(): void {
-    this.refresh();
+    this.loadFirstPage();
   }
 
-  async refresh(): Promise<void> {
+  /** 第一页失败时优先用缓存/CommunityMock，保持可浏览（m2）。 */
+  private async loadPosts(cursor: string): Promise<PageResult<CommunityPost>> {
     const token = await AuthStore.getToken(this.context);
     const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
     try {
-      this.posts = await CommunityApi.recommend(token, apiEnvironment);
+      const posts = await CommunityApi.recommend(token, apiEnvironment, cursor);
+      const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
+      const repeated = cursor.length > 0 && nextCursor === cursor;
+      // 后端单页最多 20 条；不足 20 条即可判定为最后一页，避免末尾继续显示“上拉加载更多”。
+      const hasMore = posts.length >= 20 && !repeated;
+      if (cursor.length === 0) {
+        await CacheStore.setJson<CommunityPost[]>(this.context, 'communityPosts', posts);
+      }
+      return new PageResult<CommunityPost>(posts, hasMore ? nextCursor : '', hasMore);
     } catch (err) {
-      LogUtil.warn('community', `recommend failed ${(err as Error).message}`);
-      this.posts = [];
+      LogUtil.warn('community', `recommend failed cursor=${cursor} ${(err as Error).message}`);
+      if (cursor.length > 0) {
+        throw new Error('加载更多失败，请重试');
+      }
+      const cached = await CacheStore.getJson<CommunityPost[]>(this.context, 'communityPosts', CommunityMock.posts());
+      const fallback = cached.length > 0 ? cached : CommunityMock.posts();
+      return new PageResult<CommunityPost>(fallback, '', false);
     }
+  }
+
+  private syncPagerState(): void {
+    this.posts = this.pager.items;
+    this.footerText = this.pager.footerText();
+    this.pagerError = this.pager.error;
+  }
+
+  async loadFirstPage(): Promise<void> {
+    this.loading = true;
+    await this.pager.refresh();
+    this.syncPagerState();
+    this.loading = false;
+    this.showBackToTop = false;
+  }
+
+  async onRefresh(): Promise<void> {
+    this.refreshing = true;
+    try {
+      await this.pager.reload();
+      this.showBackToTop = false;
+    } catch (err) {
+      LogUtil.warn('community', `refresh failed ${(err as Error).message}`);
+    } finally {
+      this.syncPagerState();
+      this.refreshing = false;
+    }
+  }
+
+  async loadMore(): Promise<void> {
+    this.footerText = '加载中...';
+    await this.pager.loadMore();
+    this.syncPagerState();
   }
 
   private tabs(): CommunityTab[] {
@@ -56,11 +123,16 @@ export struct Community {
     return this.posts;
   }
 
-  private firstImage(post: CommunityPost): string {
+  /** 跑腿/二手图标的原始尺寸比另外两个大（与 index.vue 的 icon-large 一致）。 */
+  private navIconSize(value: string): number {
+    return value === 'errand' || value === 'secondhand' ? 27 : 22;
+  }
+
+  private postImages(post: CommunityPost): string[] {
     if (post.imgList && post.imgList.length > 0) {
-      return post.imgList[0];
+      return post.imgList;
     }
-    return post.imageUrl;
+    return post.imageUrl.length > 0 ? [post.imageUrl] : [];
   }
 
   private avatarText(post: CommunityPost): string {
@@ -69,7 +141,10 @@ export struct Community {
   }
 
   private brandText(post: CommunityPost): string {
-    const brandTitles: string[] = ['卷王', '躺平王', '摸鱼大师', '早八人', '夜猫子', '复习达人', 'DDL战士', '校园百事通'];
+    const brandTitles: string[] = ['卷王', '躺平王', '摸鱼大师', '早八人', '夜猫子', '复习达人',
+      '课表杀手', 'DDL战士', '食堂VIP', '图书馆常驻', '运动健将', '社团大佬', '宿舍躺王', '外卖达人',
+      '校园百事通', '社交恐怖', '萌新', '老油条', '传说', '工具人', '水课王', '干饭人',
+      '摸鱼专业户', '起床困难户', '拖延症晚期', '复习困难户'];
     let seed = 0;
     const name = post.author.length > 0 ? post.author : post.title;
     for (let index = 0; index < name.length; index++) {
@@ -78,11 +153,45 @@ export struct Community {
     return brandTitles[seed % brandTitles.length];
   }
 
+  /** 与小程序 utils/timeFormat.js 的 formatRelativeTime 一致。 */
+  private formatTime(value: string): string {
+    if (value.length === 0) {
+      return '';
+    }
+    const normalized = value.replace(/-/g, '/').replace('T', ' ');
+    const date = new Date(normalized);
+    const time = date.getTime();
+    if (Number.isNaN(time)) {
+      return value;
+    }
+    const diff = new Date().getTime() - time;
+    if (diff < 60 * 1000) {
+      return '刚刚';
+    }
+    if (diff < 60 * 60 * 1000) {
+      return `${Math.floor(diff / (60 * 1000))}分钟前`;
+    }
+    if (diff < 24 * 60 * 60 * 1000) {
+      return `${Math.floor(diff / (60 * 60 * 1000))}小时前`;
+    }
+    if (diff < 7 * 24 * 60 * 60 * 1000) {
+      return `${Math.floor(diff / (24 * 60 * 60 * 1000))}天前`;
+    }
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+
   private viewCount(post: CommunityPost): number {
     if (post.viewCount > 0) {
       return post.viewCount;
     }
-    return 10 + (Number(post.id) % 191);
+    const source = post.id.length > 0 ? post.id : post.title;
+    let seed = 0;
+    for (let index = 0; index < source.length; index++) {
+      seed = (seed * 31 + source.charCodeAt(index)) % 100000;
+    }
+    return 10 + (seed % 191);
   }
 
   private errandTypeColor(type: string): string {
@@ -102,7 +211,7 @@ export struct Community {
       return '#5856d6';
     }
     if (type === '西门代拿') {
-      return '#d9a400';
+      return '#ffcc00';
     }
     return '#999999';
   }
@@ -157,25 +266,99 @@ export struct Community {
     router.pushUrl({ url: 'pages/CommunityPublish' });
   }
 
+  private isFollowing(post: CommunityPost): boolean {
+    return this.followedAuthors.indexOf(post.author) >= 0;
+  }
+
+  /** 关注/取关为本地交互（小程序也未接后端关注接口）。 */
+  private toggleFollow(post: CommunityPost): void {
+    if (!this.isFollowing(post)) {
+      this.followedAuthors = this.followedAuthors.concat([post.author]);
+      return;
+    }
+    promptAction.showDialog({
+      title: '确认取关',
+      message: `确定要取消关注 ${post.author} 吗？`,
+      buttons: [
+        { text: '取消', color: '#666666' },
+        { text: '确定', color: '#00cc6a' }
+      ]
+    }).then((result) => {
+      if (result.index === 1) {
+        this.followedAuthors = this.followedAuthors.filter((name: string) => name !== post.author);
+      }
+    });
+  }
+
+  /** 发布成功后重新拉取第一页。 */
+  private onRefreshSignal(): void {
+    if (this.refreshAt.length === 0) {
+      return;
+    }
+    AppStorage.setOrCreate<string>('communityRefreshAt', '');
+    this.onRefresh();
+  }
+
+  /** 详情页返回后同步点赞/评论数，避免列表停留在旧数据。 */
+  private onPostDelta(): void {
+    if (this.postDelta.length === 0) {
+      return;
+    }
+    const parts = this.postDelta.split('|');
+    if (parts.length < 4) {
+      return;
+    }
+    const id = parts[0];
+    const liked = parts[1] === '1';
+    const likeCount = Number(parts[2]);
+    const commentCount = Number(parts[3]);
+    const apply = (post: CommunityPost): CommunityPost => {
+      if (post.id !== id) {
+        return post;
+      }
+      post.liked = liked;
+      post.isLike = liked ? 1 : 0;
+      post.likeCount = Number.isNaN(likeCount) ? post.likeCount : likeCount;
+      post.commentCount = Number.isNaN(commentCount) ? post.commentCount : commentCount;
+      return post;
+    };
+    this.posts = this.posts.map(apply);
+    this.pager.items = this.pager.items.map(apply);
+    AppStorage.setOrCreate<string>('communityPostDelta', '');
+  }
+
   async toggleLike(post: CommunityPost): Promise<void> {
-    post.liked = !post.liked;
-    post.isLike = post.liked ? 1 : 0;
-    post.likeCount += post.liked ? 1 : -1;
+    // 乐观点赞：先更新 UI，失败后回滚（与任务约定一致）。
+    const nextLiked = !post.liked;
+    const previousLiked = post.liked;
+    const previousCount = post.likeCount;
+    post.liked = nextLiked;
+    post.isLike = nextLiked ? 1 : 0;
+    post.likeCount = previousCount + (nextLiked ? 1 : -1);
     this.posts = this.posts.map((item: CommunityPost) => item.id === post.id ? post : item);
     const token = await AuthStore.getToken(this.context);
     const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
     try {
-      await CommunityApi.like(token, post.id, post.liked, apiEnvironment);
+      await CommunityApi.like(token, post.id, nextLiked, apiEnvironment);
     } catch (err) {
       LogUtil.warn('community', `like failed ${(err as Error).message}`);
+      post.liked = previousLiked;
+      post.isLike = previousLiked ? 1 : 0;
+      post.likeCount = previousCount;
+      this.posts = this.posts.map((item: CommunityPost) => item.id === post.id ? post : item);
+      ToastUtil.show('点赞失败，请重试');
     }
   }
 
   @Builder NavItem(tab: CommunityTab) {
     Column() {
       Row() {
-        AppIcon({ name: tab.icon, iconSize: 27 })
+        AppIcon({ name: tab.icon, iconSize: this.navIconSize(tab.value) })
           .opacity(this.currentTab === tab.value ? 1 : 0.58)
+          .scale({
+            x: this.currentTab === tab.value ? 1.1 : 1,
+            y: this.currentTab === tab.value ? 1.1 : 1
+          })
         Text(tab.label)
           .fontSize(12)
           .fontWeight(this.currentTab === tab.value ? FontWeight.Bold : FontWeight.Regular)
@@ -197,10 +380,56 @@ export struct Community {
     })
   }
 
+  /** 动态图片：1 张大图、3 张首图通栏、其余两列网格（对齐 PostCard.vue）。 */
+  @Builder PostImages(post: CommunityPost) {
+    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
+      ForEach(this.postImages(post), (url: string, index: number) => {
+        if (this.postImages(post).length === 1) {
+          NetImage({
+            imageUrl: url,
+            imageHeight: 200,
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width(200)
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        } else if (this.postImages(post).length === 3 && index === 0) {
+          NetImage({
+            imageUrl: url,
+            imageHeight: 120,
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width('100%')
+            .margin({ bottom: 3 })
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        } else {
+          NetImage({
+            imageUrl: url,
+            imageHeight: this.postImages(post).length >= 4 ? 100 : 120,
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width('48.5%')
+            .margin({ bottom: 3 })
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        }
+      }, (url: string, index: number) => `${post.id}-${index}-${url}`)
+    }
+    .width('100%')
+    .margin({ top: 10 })
+  }
+
   @Builder PostCard(post: CommunityPost) {
     Column() {
       Row() {
-        Stack({ alignContent: Alignment.Bottom }) {
+        Stack({ alignContent: Alignment.TopStart }) {
           Text(this.avatarText(post))
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
@@ -208,16 +437,24 @@ export struct Community {
             .width(40)
             .height(40)
             .textAlign(TextAlign.Center)
-            .backgroundColor('#6e8efb')
+            .linearGradient({
+              angle: 135,
+              colors: [['#6e8efb', 0.0], ['#a777e3', 1.0]]
+            })
             .borderRadius(20)
-          Text(this.brandText(post))
-            .fontSize(10)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#FFFFFF')
-            .padding({ left: 7, right: 7, top: 2, bottom: 2 })
-            .backgroundColor('#ff9a56')
-            .borderRadius(4)
-            .margin({ bottom: -7 })
+          Tag({
+            text: this.brandText(post),
+            fgColor: '#FFFFFF',
+            bgColor: '#ff9a56',
+            fontSize: 10,
+            tagRadius: 4,
+            tagPaddingH: 7,
+            tagPaddingV: 2,
+            centerText: true
+          })
+            .width(70)
+            .rotate({ angle: -8 })
+            .position({ x: -10, y: 33 })
         }
         .width(50)
         .height(52)
@@ -228,7 +465,7 @@ export struct Community {
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
             .fontColor('#333333')
-          Text(post.publishTime)
+          Text(this.formatTime(post.publishTime))
             .fontSize(12)
             .fontColor('#999999')
             .margin({ top: 3 })
@@ -236,12 +473,15 @@ export struct Community {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
-        Text('关注')
+        Text(this.isFollowing(post) ? '已关注' : '关注')
           .fontSize(12)
-          .fontColor('#00cc6a')
+          .fontColor(this.isFollowing(post) ? '#999999' : '#00cc6a')
           .padding({ left: 15, right: 15, top: 6, bottom: 6 })
-          .border({ width: 1, color: '#00cc6a' })
+          .border({ width: 1, color: this.isFollowing(post) ? '#dddddd' : '#00cc6a' })
           .borderRadius(16)
+          .onClick(() => {
+            this.toggleFollow(post);
+          })
       }
       .width('100%')
       .margin({ bottom: 12 })
@@ -254,15 +494,8 @@ export struct Community {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
 
-      if (this.firstImage(post).length > 0) {
-        RemoteImage({
-          imageUrl: this.firstImage(post),
-          imageHeight: 200,
-          imageRadius: 6,
-          fitMode: 'cover'
-        })
-          .width(200)
-          .margin({ top: 10 })
+      if (this.postImages(post).length > 0) {
+        this.PostImages(post)
       }
 
       Row() {
@@ -277,21 +510,30 @@ export struct Community {
         .layoutWeight(1)
 
         Row() {
-          AppIcon({ name: 'community_comment', iconSize: 15 })
-            .opacity(0.7)
-          Text(`${post.commentCount}`)
-            .fontSize(13)
-            .fontColor('#666666')
-            .margin({ left: 4, right: 18 })
-          AppIcon({ name: post.isLike === 1 ? 'community_liked' : 'community_like', iconSize: 16 })
-          Text(`${post.likeCount}`)
-            .fontSize(13)
-            .fontColor('#666666')
-            .margin({ left: 4 })
+          Row() {
+            AppIcon({ name: 'community_comment', iconSize: 15 })
+              .opacity(0.7)
+            Text(`${post.commentCount}`)
+              .fontSize(13)
+              .fontColor('#666666')
+              .margin({ left: 4 })
+          }
+          .margin({ right: 16 })
+
+          Row() {
+            AppIcon({ name: post.isLike === 1 ? 'community_liked' : 'community_like', iconSize: 16 })
+            Text(`${post.likeCount}`)
+              .fontSize(13)
+              .fontColor('#666666')
+              .margin({ left: 4 })
+          }
+          .onClick(() => {
+            this.toggleLike(post);
+          })
         }
-        .onClick(() => {
-          this.toggleLike(post);
-        })
+        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+        .backgroundColor('#f5f5f5')
+        .borderRadius(16)
       }
       .width('100%')
       .padding({ top: 12 })
@@ -309,17 +551,41 @@ export struct Community {
 
   @Builder DynamicList() {
     Column() {
-      if (this.filteredPosts().length === 0) {
-        Text('暂无动态')
-          .fontSize(14)
-          .fontColor('#999999')
-          .height(160)
-          .width('100%')
-          .textAlign(TextAlign.Center)
+      if (this.loading && this.filteredPosts().length === 0) {
+        Skeleton({ rows: 4, showAvatar: true })
+          .margin({ left: 12, right: 12, top: 12 })
+      } else if (this.filteredPosts().length === 0) {
+        EmptyState({
+          title: '暂无动态',
+          description: '下拉刷新，或稍后再来看看',
+          actionText: '重新加载',
+          onAction: () => {
+            this.onRefresh();
+          }
+        })
+          .margin({ top: 12 })
       } else {
         ForEach(this.filteredPosts(), (post: CommunityPost) => {
           this.PostCard(post)
-        }, (post: CommunityPost) => post.id)
+        }, (post: CommunityPost) => `${post.id}-${post.isLike}-${post.likeCount}-${post.commentCount}`)
+        if (this.pagerError.length > 0) {
+          Text('加载失败，点击重试')
+            .fontSize(12)
+            .fontColor('#ff6b6b')
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ top: 16, bottom: 24 })
+            .onClick(() => {
+              this.loadMore();
+            })
+        } else {
+          Text(this.footerText)
+            .fontSize(12)
+            .fontColor('#999999')
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .padding({ top: 16, bottom: 24 })
+        }
       }
     }
     .width('100%')
@@ -432,23 +698,48 @@ export struct Community {
         .backgroundColor('#FFFFFF')
         .shadow({ radius: 10, color: '#0D000000', offsetX: 0, offsetY: 2 })
 
-        Scroll() {
-          if (this.currentTab === 'dynamic') {
-            this.DynamicList()
-          } else if (this.currentTab === 'errand') {
-            this.ErrandList()
-          } else if (this.currentTab === 'secondhand') {
-            this.EmptyTab('二手功能开发中...')
-          } else {
-            this.EmptyTab('评分功能开发中...')
+        Refresh({ refreshing: $$this.refreshing }) {
+          Scroll(this.scroller) {
+            if (this.currentTab === 'dynamic') {
+              this.DynamicList()
+            } else if (this.currentTab === 'errand') {
+              this.ErrandList()
+            } else if (this.currentTab === 'secondhand') {
+              this.EmptyTab('二手功能开发中...')
+            } else {
+              this.EmptyTab('评分功能开发中...')
+            }
           }
+          .width('100%')
+          .height('100%')
+          .backgroundColor('#f8f8f8')
+          .scrollBar(BarState.Off)
+          .onScroll(() => {
+            this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 300;
+          })
+          .onScrollEdge((side: Edge) => {
+            if (side === Edge.Bottom && this.currentTab === 'dynamic') {
+              this.loadMore();
+            }
+          })
         }
         .layoutWeight(1)
-        .backgroundColor('#f8f8f8')
+        .onRefreshing(() => {
+          this.onRefresh();
+        })
       }
       .width('100%')
       .height('100%')
       .backgroundColor('#f8f8f8')
+
+      BackToTop({
+        visible: this.showBackToTop,
+        marginBottom: 146,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
 
       Button('+')
         .width(50)
@@ -463,6 +754,27 @@ export struct Community {
         .onClick(() => {
           this.openPublish();
         })
+
+      if (this.previewUrl.length > 0) {
+        Column() {
+          Image(this.previewUrl)
+            .width('100%')
+            .height('80%')
+            .objectFit(ImageFit.Contain)
+          Text('点击任意处关闭')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .margin({ top: 18 })
+        }
+        .justifyContent(FlexAlign.Center)
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#000000')
+        .zIndex(30)
+        .onClick(() => {
+          this.previewUrl = '';
+        })
+      }
     }
     .width('100%')
     .height('100%')

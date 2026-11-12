@@ -29,3 +29,5 @@ entry/src/main/ets/api/env.ets
 *.jks
 *.keystore
 signing/
+# 验收截图（本地证据，可重新生成）
+docs/acceptance/screenshots/

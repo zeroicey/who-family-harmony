@@ -2,62 +2,19 @@ import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
 import { ApiConfig } from '../api/ApiConfig';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { NetImage } from '../components/common/NetImage';
 import { JobApi } from '../api/JobApi';
 import { UserApi } from '../api/UserApi';
 import { Banner } from '../models/Banner';
 import { Job } from '../models/Job';
 import { AuthStore } from '../stores/AuthStore';
 import { MockData } from '../utils/MockData';
+import { CampusNotification, HomeService } from '../models/MockModels';
 import { LogUtil } from '../utils/LogUtil';
 import { Community } from './Community';
 import { Helper } from './Helper';
 import { Knowledge } from './Knowledge';
 import { Mine } from './Mine';
-
-class HomeService {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  price: string;
-  rating: string;
-  orders: string;
-  url: string;
-
-  constructor(id: string, title: string, description: string, imageUrl: string, price: string, rating: string, orders: string, url: string) {
-    this.id = id;
-    this.title = title;
-    this.description = description;
-    this.imageUrl = imageUrl;
-    this.price = price;
-    this.rating = rating;
-    this.orders = orders;
-    this.url = url;
-  }
-}
-
-class CampusNotification {
-  id: string;
-  typeText: string;
-  tagColor: string;
-  title: string;
-  description: string;
-  sender: string;
-  time: string;
-  readers: string;
-
-  constructor(id: string, typeText: string, tagColor: string, title: string, description: string, sender: string, time: string, readers: string) {
-    this.id = id;
-    this.typeText = typeText;
-    this.tagColor = tagColor;
-    this.title = title;
-    this.description = description;
-    this.sender = sender;
-    this.time = time;
-    this.readers = readers;
-  }
-}
 
 @Entry
 @Component
@@ -66,7 +23,8 @@ struct Index {
   @State banners: Banner[] = MockData.banners();
   @State selectedIndex: number = 0;
   @State userName: string = '同学';
-  @State jobs: Job[] = MockData.jobs();
+  @State jobs: Job[] = [];
+  @State jobsLoading: boolean = true;
 
   async aboutToAppear(): Promise<void> {
     await AuthStore.isLogin(this.context);
@@ -88,12 +46,12 @@ struct Index {
 
     try {
       const remoteJobs = await JobApi.recommend(token, apiEnvironment);
-      if (remoteJobs.length > 0) {
-        this.jobs = remoteJobs;
-      }
+      this.jobs = remoteJobs.length > 0 ? remoteJobs : MockData.jobs();
     } catch (err) {
       LogUtil.warn('home', `jobs failed ${(err as Error).message}`);
       this.jobs = MockData.jobs();
+    } finally {
+      this.jobsLoading = false;
     }
   }
 
@@ -127,24 +85,11 @@ struct Index {
   }
 
   private services(): HomeService[] {
-    return [
-      new HomeService('flow', '校园人流天气', '实时查看校园各区域人流量分布与空气质量指数，助你避开拥挤，畅享清新校园生活。', 'https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAESETBpwP6ugYWtISs6XQ81KokrT4mBIgACnCQAAiLeCFbhCOwpzFtBizoE.png', '', '5.0', '4060', 'pages/ServicePersonInfo'),
-      new HomeService('schedule', '查询课表服务', '查询当前学期的课表，方便你及时了解自己的课程安排。', 'https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEECPRpAZAXQl3cBfhxDxuSt1AojYoeHQAC7iAAAtCQCFQvkTsfSeUnwjYE.jpg', '', '4.8', '1580', 'pages/ServiceSchedule'),
-      new HomeService('grade', '查询成绩服务', '查询当前学期的成绩，方便你及时了解自己的学习情况。', 'https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEECP5pAZDT2lKDbMs1BC1kkTo76bcj3AAC-CAAAtCQCFQGU12qYNcw8DYE.jpg', '', '4.8', '1580', 'pages/ServiceGrade'),
-      new HomeService('print', '远程打印服务', '宿舍也能轻松打印！手机一键上传，即刻获取文件。', 'https://api.hcyj.xyz/images/dnfw.png', '¥0.2/页', '4.9', '2350', 'pages/ServicePrint'),
-      new HomeService('more', '更多服务', '更多精彩服务即将上线！我们正在精心准备更多便捷实用的校园服务。', 'https://api.hcyj.xyz/images/gdfw.jpg', '???¥', '5.0', '5000', '')
-    ];
+    return MockData.homeServices();
   }
 
   private notifications(): CampusNotification[] {
-    return [
-      new CampusNotification('n1', '重要', '#ff4d4f', '关于2025年春季学期期末考试安排的通知', '各位同学，2025年春季学期期末考试将于6月15日至6月25日进行，请查看具体安排并做好准备。', '教务处', '2小时前', '1253'),
-      new CampusNotification('n2', '活动', '#1890ff', '校园才艺大赛报名开始', '第十二届校园才艺大赛现已开始报名，欢迎各位同学积极参与，展示你的才华！', '学生会', '4小时前', '865'),
-      new CampusNotification('n3', '讲座', '#722ed1', '人工智能与未来职业发展讲座', '著名AI研究员张教授将于下周三在主教学楼进行讲座，探讨AI如何改变未来就业格局。', '计算机学院', '昨天', '743'),
-      new CampusNotification('n4', '通知', '#faad14', '图书馆开放时间调整', '因维修工程，图书馆自5月1日起将调整开放时间，周一至周五8:00-21:00，周末9:00-18:00。', '图书馆', '昨天', '1028'),
-      new CampusNotification('n5', '奖学金', '#52c41a', '2025年国家奖学金申请开始', '2025年国家奖学金申请已开始，请符合条件的同学于5月15日前提交申请材料。', '学生处', '2天前', '1536'),
-      new CampusNotification('n6', '就业', '#fa8c16', '腾讯2025校园招聘宣讲会', '腾讯公司将于5月10日在主会场举办校园招聘宣讲会，欢迎应届毕业生参加。', '就业指导中心', '3天前', '1892')
-    ];
+    return MockData.campusNotifications();
   }
 
   private bannerData(): Banner[] {
@@ -157,10 +102,10 @@ struct Index {
   }
 
   openService(service: HomeService): void {
-    if (service.url.length === 0) {
+    if (service.route.length === 0) {
       return;
     }
-    router.pushUrl({ url: service.url });
+    router.pushUrl({ url: service.route });
   }
 
   openJob(job: Job): void {
@@ -212,9 +157,9 @@ struct Index {
       Swiper() {
         ForEach(this.bannerData(), (item: Banner) => {
           Stack({ alignContent: Alignment.BottomStart }) {
-            RemoteImage({
+            NetImage({
               imageUrl: item.imageUrl,
-              imageHeight: 178,
+              imageHeight: 169,
               imageRadius: 0,
               fitMode: 'cover'
             })
@@ -227,13 +172,16 @@ struct Index {
                 .fontColor('#FFFFFF')
               Text(item.summary)
                 .fontSize(12)
-                .fontColor('#F2F4F7')
+                .fontColor('rgba(255, 255, 255, 0.9)')
                 .margin({ top: 4 })
             }
             .alignItems(HorizontalAlign.Start)
             .width('100%')
             .padding(15)
-            .backgroundColor('#88000000')
+            .linearGradient({
+              angle: 180,
+              colors: [['#B3000000', 0.0], ['#00000000', 1.0]]
+            })
           }
           .width('100%')
           .height('100%')
@@ -243,8 +191,11 @@ struct Index {
       }
       .autoPlay(true)
       .loop(true)
+      .interval(3000)
+      .duration(500)
       .indicator(true)
-      .height(178)
+      .indicatorStyle({ color: 'rgba(255, 255, 255, 0.5)', selectedColor: '#FFFFFF' })
+      .height(169)
       .borderRadius(16)
       .margin({ left: 20, right: 20, bottom: 16 })
     }
@@ -272,7 +223,7 @@ struct Index {
           ForEach(this.services(), (item: HomeService) => {
             Column() {
               Stack({ alignContent: Alignment.TopEnd }) {
-                RemoteImage({
+                NetImage({
                   imageUrl: item.imageUrl,
                   imageHeight: 142,
                   imageRadius: 0,
@@ -434,8 +385,11 @@ struct Index {
           Text('')
             .width(4)
             .height(20)
-            .backgroundColor('#1890ff')
-            .borderRadius(3)
+            .borderRadius(2)
+            .linearGradient({
+              angle: 180,
+              colors: [['#1890ff', 0.0], ['#36a6ff', 1.0]]
+            })
             .margin({ right: 10 })
           Text('近期招聘')
             .fontSize(16)
@@ -450,12 +404,36 @@ struct Index {
           .backgroundColor('#141890ff')
           .borderRadius(16)
           .onClick(() => {
-            this.selectedIndex = 1;
             router.pushUrl({ url: 'pages/JobList' });
           })
       }
       .width('100%')
       .margin({ bottom: 14 })
+
+      if (this.jobsLoading && this.jobs.length === 0) {
+        Column() {
+          LoadingProgress()
+            .width(22)
+            .height(22)
+            .color('#1890ff')
+          Text('正在加载...')
+            .fontSize(12)
+            .fontColor('#999999')
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .padding({ top: 22, bottom: 22 })
+        .alignItems(HorizontalAlign.Center)
+      } else if (this.jobs.length === 0) {
+        Column() {
+          Text('暂无招聘信息')
+            .fontSize(13)
+            .fontColor('#aaaaaa')
+        }
+        .width('100%')
+        .padding({ top: 38, bottom: 38 })
+        .alignItems(HorizontalAlign.Center)
+      }
 
       ForEach(this.jobs.slice(0, 5), (item: Job) => {
         Row() {
@@ -480,6 +458,13 @@ struct Index {
                 .padding({ left: 8, right: 8, top: 4, bottom: 4 })
                 .backgroundColor('#f5f7fa')
                 .borderRadius(12)
+              if (item.endTime.length > 0) {
+                Text(`截止: ${item.endTime}`)
+                  .fontSize(11)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor('#fa8c16')
+                  .margin({ left: 10 })
+              }
             }
             .width('100%')
             .margin({ top: 9 })

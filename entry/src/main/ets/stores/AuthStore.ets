@@ -113,6 +113,23 @@ export class AuthStore {
     return await store.get('apiEnvironment', ApiEnvironment.PRODUCTION) as string;
   }
 
+  /** 生产/本地后端切换：之后所有请求读取到新值即刻生效。 */
+  static async setApiEnvironment(context: common.UIAbilityContext, apiEnvironment: string): Promise<void> {
+    const store = await AuthStore.getStore(context);
+    await store.put('apiEnvironment', apiEnvironment);
+    await store.flush();
+    LogUtil.info('auth', `set environment=${apiEnvironment}`);
+  }
+
+  /** 只清本地用户缓存，保留 token / backendMode / apiEnvironment。 */
+  static async clearCachedUser(context: common.UIAbilityContext): Promise<void> {
+    const store = await AuthStore.getStore(context);
+    await store.delete('userInfo');
+    await store.delete('isLogin');
+    await store.flush();
+    LogUtil.warn('auth', 'clear cached user (token kept)');
+  }
+
   static async getModeSummary(context: common.UIAbilityContext): Promise<string> {
     const backendMode = await AuthStore.getBackendMode(context);
     const apiEnvironment = await AuthStore.getApiEnvironment(context);

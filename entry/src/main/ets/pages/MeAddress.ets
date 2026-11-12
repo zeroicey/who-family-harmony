@@ -5,26 +5,52 @@ import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
 import { UserApi } from '../api/UserApi';
 import { MockData } from '../utils/MockData';
-import { ToastUtil } from '../utils/ToastUtil';
+import { LogUtil } from '../utils/LogUtil';
 
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { LoadingView } from '../components/common/LoadingView';
+import { PageHeader } from '../components/common/PageHeader';
 @Entry
 @Component
 struct MeAddress {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
-  @State addresses: AddressItem[] = MockData.addresses();
+  @State addresses: AddressItem[] = [];
+  @State loading: boolean = true;
+  private pendingDeleteId: number = 0;
+  private deleteDialog: CustomDialogController = new CustomDialogController({
+    builder: ConfirmDialog({
+      title: '确认删除',
+      message: '确定要删除这个地址吗？',
+      confirmText: '删除',
+      confirmColor: '#FF3B30',
+      onConfirm: () => {
+        this.deletePending();
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  });
 
-  aboutToAppear(): void {
+  /** 进入/返回页面时刷新列表（对应小程序 onShow）。 */
+  onPageShow(): void {
     this.load();
   }
 
   async load(): Promise<void> {
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
+    this.loading = true;
     try {
+      // 与小程序一致：后端返回空数组时展示空态，不用 Mock 顶替。
       const remote = await UserApi.loadAddresses(token, env);
-      this.addresses = remote.length > 0 ? remote : await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', MockData.addresses());
-    } catch (_) {
+      LogUtil.info('address', `loaded count=${remote.length}`);
+      this.addresses = remote;
+      await CacheStore.setJson<AddressItem[]>(this.context, 'addresses', remote);
+    } catch (err) {
+      LogUtil.warn('address', `load failed ${(err as Error).message}`);
       this.addresses = await CacheStore.getJson<AddressItem[]>(this.context, 'addresses', MockData.addresses());
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -32,9 +58,9 @@ struct MeAddress {
     router.pushUrl({ url: 'pages/MeAddressCreate' });
   }
 
-  openUpdate(item: AddressItem): void {
-    CacheStore.setJson<AddressItem>(this.context, 'editingAddress', item);
-    router.pushUrl({ url: 'pages/MeAddressUpdate', params: { id: item.id } });
+  async openUpdate(item: AddressItem): Promise<void> {
+    await CacheStore.setJson<AddressItem>(this.context, 'editingAddress', item);
+    router.pushUrl({ url: 'pages/MeAddressUpdate', params: { id: `${item.id}` } });
   }
 
   async saveAddresses(addresses: AddressItem[]): Promise<void> {
@@ -55,27 +81,32 @@ struct MeAddress {
       next.push(addr);
     });
     await this.saveAddresses(next);
-    ToastUtil.show('已设为默认地址');
   }
 
   confirmDelete(item: AddressItem): void {
-    AlertDialog.show({
-      title: '确认删除',
-      message: '确定要删除这个地址吗？',
-      primaryButton: {
-        value: '删除',
-        action: () => {
-          this.deleteAddress(item);
-        }
-      },
-      secondaryButton: { value: '取消', action: () => {} }
-    });
+    this.pendingDeleteId = item.id;
+    this.deleteDialog.open();
+  }
+
+  async deletePending(): Promise<void> {
+    const id = this.pendingDeleteId;
+    this.pendingDeleteId = 0;
+    if (id === 0) {
+      return;
+    }
+    const target = this.addresses.find((addr: AddressItem) => addr.id === id);
+    if (target !== undefined) {
+      await this.deleteAddress(target);
+    }
   }
 
   async deleteAddress(item: AddressItem): Promise<void> {
     const next = this.addresses.filter((addr: AddressItem) => addr.id !== item.id);
+    // 与小程序一致：删除默认地址后，若仍有地址且无默认，首条回补为默认。
+    if (item.isDefault && next.length > 0 && next.every((addr: AddressItem) => !addr.isDefault)) {
+      next[0].isDefault = true;
+    }
     await this.saveAddresses(next);
-    ToastUtil.show('地址已删除');
   }
 
   @Builder
@@ -101,14 +132,14 @@ struct MeAddress {
               .fontColor('#FF5722')
               .margin({ right: 5 })
           }
-          Text(item.area)
+          Text(item.alias)
             .fontSize(12)
             .fontColor('#888888')
             .backgroundColor('#F0F0F0')
             .borderRadius(4)
             .padding({ left: 6, right: 6, top: 2, bottom: 2 })
             .margin({ right: 5 })
-          Text(item.detail)
+          Text(item.fullAddress)
             .fontSize(14)
             .fontColor('#666666')
             .lineHeight(20)
@@ -153,11 +184,11 @@ struct MeAddress {
   @Builder
   EmptyState() {
     Column() {
-      Text('📍')
-        .fontSize(58)
-        .fontColor('#CCCCCC')
+      Image($r('app.media.icon_me_address_empty'))
+        .width(100)
+        .height(100)
       Text('还没有收货地址，快去添加一个吧')
-        .fontSize(14)
+        .fontSize(16)
         .fontColor('#999999')
         .margin({ top: 14 })
     }
@@ -168,12 +199,15 @@ struct MeAddress {
 
   build() {
     Column() {
+      PageHeader({ title: '地址管理' })
       Scroll() {
         Column() {
-          if (this.addresses.length > 0) {
+          if (this.loading) {
+            LoadingView({ text: '正在加载地址', minHeight: 240 })
+          } else if (this.addresses.length > 0) {
             ForEach(this.addresses, (item: AddressItem) => {
               this.AddressCard(item)
-            }, (item: AddressItem) => item.id)
+            }, (item: AddressItem) => `${item.id}-${item.isDefault}-${item.alias}-${item.fullAddress}`)
           } else {
             this.EmptyState()
           }

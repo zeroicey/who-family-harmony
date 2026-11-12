@@ -1,7 +1,10 @@
 import { common } from '@kit.AbilityKit';
 import { router } from '@kit.ArkUI';
-import { AppIcon } from '../components/AppIcon';
+import { BackToTop } from '../components/common/BackToTop';
+import { EmptyState } from '../components/common/EmptyState';
+import { NetImage } from '../components/common/NetImage';
 import { KnowledgeArticle } from '../models/MiniProgramModels';
+import { ScrollToTop } from '../services/PagedList';
 import { CacheStore } from '../stores/CacheStore';
 import { MockData } from '../utils/MockData';
 
@@ -12,14 +15,20 @@ export struct Knowledge {
   @State tabs: string[] = MockData.knowledgeTabs();
   @State activeTab: string = '前端';
   @State articles: KnowledgeArticle[] = MockData.knowledgeArticles();
+  @State showBackToTop: boolean = false;
+  private scroller: Scroller = new Scroller();
 
   filteredArticles(): KnowledgeArticle[] {
     return this.articles.filter((item: KnowledgeArticle) => item.category === this.activeTab);
   }
 
-  openArticle(item: KnowledgeArticle): void {
-    CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${item.id}`, item);
+  async openArticle(item: KnowledgeArticle): Promise<void> {
+    await CacheStore.setJson<KnowledgeArticle>(this.context, `knowledge:${item.id}`, item);
     router.pushUrl({ url: 'pages/KnowledgeArticle', params: { id: item.id } });
+  }
+
+  private avatarUrl(author: string): string {
+    return `https://api.dicebear.com/7.x/pixel-art/png?seed=${encodeURIComponent(author)}`;
   }
 
   private levelColor(level: string): string {
@@ -128,15 +137,18 @@ export struct Knowledge {
       .width('100%')
 
       Row() {
-        Text(item.author.substring(0, 1))
-          .fontSize(12)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .width(24)
-          .height(24)
-          .textAlign(TextAlign.Center)
-          .backgroundColor('#2979ff')
-          .borderRadius(12)
+        Stack() {
+          NetImage({
+            imageUrl: this.avatarUrl(item.author),
+            imageHeight: 24,
+            imageRadius: 12,
+            fitMode: 'cover'
+          })
+        }
+        .width(24)
+        .height(24)
+        .borderRadius(12)
+        .clip(true)
         Text(item.author)
           .fontSize(12)
           .fontWeight(FontWeight.Medium)
@@ -162,16 +174,11 @@ export struct Knowledge {
           .fontSize(11)
           .fontColor('#999999')
           .layoutWeight(1)
-        AppIcon({ name: 'community_view', iconSize: 12 })
-          .opacity(0.65)
-          .margin({ right: 4 })
-        Text(this.formatNumber(item.views))
+        Text(`👁 ${this.formatNumber(item.views)}`)
           .fontSize(11)
           .fontColor('#999999')
           .margin({ right: 12 })
-        AppIcon({ name: 'community_like', iconSize: 12 })
-          .margin({ right: 4 })
-        Text(this.formatNumber(item.likes))
+        Text(`👍 ${this.formatNumber(item.likes)}`)
           .fontSize(11)
           .fontColor('#999999')
       }
@@ -190,44 +197,59 @@ export struct Knowledge {
   }
 
   build() {
-    Column() {
-      Scroll() {
-        Row() {
-          ForEach(this.tabs, (tab: string) => {
-            this.TabItem(tab)
-          }, (tab: string) => tab)
-        }
-        .padding({ left: 10, right: 10 })
-      }
-      .scrollable(ScrollDirection.Horizontal)
-      .width('100%')
-      .height(40)
-      .backgroundColor('#FFFFFF')
-      .border({ width: { bottom: 1 }, color: '#e5e5e5' })
-      .scrollBar(BarState.Off)
-
-      Scroll() {
-        Column() {
-          if (this.filteredArticles().length === 0) {
-            Text('暂无知识内容')
-              .fontSize(14)
-              .fontColor('#999999')
-              .height(160)
-              .width('100%')
-              .textAlign(TextAlign.Center)
-          } else {
-            ForEach(this.filteredArticles(), (item: KnowledgeArticle) => {
-              this.KnowledgeCard(item)
-            }, (item: KnowledgeArticle) => item.id)
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Column() {
+        Scroll() {
+          Row() {
+            ForEach(this.tabs, (tab: string) => {
+              this.TabItem(tab)
+            }, (tab: string) => tab)
           }
+          .padding({ left: 10, right: 10 })
         }
+        .scrollable(ScrollDirection.Horizontal)
         .width('100%')
-        .padding(12)
+        .height(40)
+        .backgroundColor('#FFFFFF')
+        .border({ width: { bottom: 1 }, color: '#e5e5e5' })
+        .scrollBar(BarState.Off)
+
+        Scroll(this.scroller) {
+          Column() {
+            if (this.filteredArticles().length === 0) {
+              EmptyState({
+                title: '暂无知识内容',
+                description: '换个分类看看吧'
+              })
+                .margin({ top: 12 })
+            } else {
+              ForEach(this.filteredArticles(), (item: KnowledgeArticle) => {
+                this.KnowledgeCard(item)
+              }, (item: KnowledgeArticle) => `${item.id}-${item.likes}`)
+            }
+          }
+          .width('100%')
+          .padding(12)
+        }
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .onScroll(() => {
+          this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 300;
+        })
       }
-      .layoutWeight(1)
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#f5f5f5')
+
+      BackToTop({
+        visible: this.showBackToTop,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#f5f5f5')
   }
 }

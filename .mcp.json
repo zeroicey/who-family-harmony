@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cormorant": {
+      "type": "http",
+      "url": "http://100.64.0.1:8848/mcp"
+    }
+  }
+}

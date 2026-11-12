@@ -51,11 +51,17 @@ export class ChatMessage {
   id: string;
   role: string;
   content: string;
+  /** ai 消息状态：thinking / typing / done / error。 */
+  status: string;
+  /** ai 消息对应的用户提问，用于错误重试。 */
+  question: string;
 
   constructor(id: string = '', role: string = 'ai', content: string = '') {
     this.id = id;
     this.role = role;
     this.content = content;
+    this.status = 'done';
+    this.question = '';
   }
 }
 
@@ -72,26 +78,26 @@ export class PresetQuestion {
 }
 
 export class AddressItem {
-  id: string;
+  id: number;
+  alias: string;
+  fullAddress: string;
   name: string;
   phone: string;
-  area: string;
-  detail: string;
   isDefault: boolean;
 
   constructor(
-    id: string = '',
+    id: number = 0,
     name: string = '',
     phone: string = '',
-    area: string = '',
-    detail: string = '',
+    alias: string = '',
+    fullAddress: string = '',
     isDefault: boolean = false
   ) {
     this.id = id;
     this.name = name;
     this.phone = phone;
-    this.area = area;
-    this.detail = detail;
+    this.alias = alias;
+    this.fullAddress = fullAddress;
     this.isDefault = isDefault;
   }
 }
@@ -119,6 +125,8 @@ export class PrintOrder {
   remark: string;
   status: string;
   createdAt: string;
+  startOrderTime: string;
+  endOrderTime: string;
 
   constructor(
     id: string = '',
@@ -130,7 +138,9 @@ export class PrintOrder {
     fileName: string = '',
     remark: string = '',
     status: string = '待处理',
-    createdAt: string = ''
+    createdAt: string = '',
+    startOrderTime: string = '',
+    endOrderTime: string = ''
   ) {
     this.id = id;
     this.type = type;
@@ -142,6 +152,8 @@ export class PrintOrder {
     this.remark = remark;
     this.status = status;
     this.createdAt = createdAt;
+    this.startOrderTime = startOrderTime.length > 0 ? startOrderTime : createdAt;
+    this.endOrderTime = endOrderTime;
   }
 }
 

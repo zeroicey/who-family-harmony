@@ -38,7 +38,9 @@ class JobResponse {
   contact: string = '';
   logoUrl: string = '';
   positions: number | string = 0;
+  deliverCount: number | string = 0;
   endTime: string = '';
+  createTime: string = '';
   isHot: number | string | boolean = false;
   isRecommended: number | string | boolean = false;
   isDeliver: number | string | boolean = false;
@@ -87,7 +89,9 @@ export class JobApi {
     );
     normalized.logoUrl = JobApi.safeText(job.logoUrl);
     normalized.positions = JobApi.safeNumber(job.positions);
+    normalized.deliverCount = JobApi.safeNumber(job.deliverCount);
     normalized.endTime = JobApi.safeText(job.endTime);
+    normalized.createTime = JobApi.safeText(job.createTime);
     normalized.isHot = JobApi.safeCollect(job.isHot);
     normalized.isRecommended = JobApi.safeCollect(job.isRecommended);
     normalized.isDeliver = JobApi.safeCollect(job.isDeliver);
@@ -109,6 +113,13 @@ export class JobApi {
 
   static async recommend(token: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<Job[]> {
     const result = await HttpClient.get<JobResponse[]>('/hire/recommend-jobs', token, apiEnvironment);
+    return result.data === null ? [] : JobApi.normalizeJobs(result.data);
+  }
+
+  /** 分页加载：lastId 为当前列表最后一条岗位 id（与小程序 fetchMoreRecruits 一致）。 */
+  static async recommendMore(token: string, lastId: string, apiEnvironment: string = ApiEnvironment.PRODUCTION): Promise<Job[]> {
+    const result = await HttpClient.get<JobResponse[]>(`/hire/recommend-jobs?lastId=${encodeURIComponent(lastId)}`, token,
+      apiEnvironment);
     return result.data === null ? [] : JobApi.normalizeJobs(result.data);
   }
 

@@ -6,26 +6,64 @@ import { FocusApi } from '../api/FocusApi';
 import { TaskApi } from '../api/TaskApi';
 import { UserApi } from '../api/UserApi';
 import { AppIcon } from '../components/AppIcon';
-import { RemoteImage } from '../components/RemoteImage';
+import { BackToTop } from '../components/common/BackToTop';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { EmptyState } from '../components/common/EmptyState';
+import { NetImage } from '../components/common/NetImage';
+import { SectionCard } from '../components/common/SectionCard';
+import { Skeleton } from '../components/common/Skeleton';
 import { CommunityPost } from '../models/CommunityPost';
 import { StudyTask } from '../models/Task';
 import { UserProfile } from '../models/UserProfile';
+import { PageResult, PagedListController, ScrollToTop } from '../services/PagedList';
 import { AuthStore } from '../stores/AuthStore';
+import { CacheStore } from '../stores/CacheStore';
 import { LogUtil } from '../utils/LogUtil';
+import { ToastUtil } from '../utils/ToastUtil';
 
 @Entry
 @Component
 export struct Mine {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
   @State user: UserProfile = new UserProfile('用户', ApiConfig.DEMO_USER_ID);
-  @State avatarUrl: string = '';
+  @StorageLink('avatarUrl') avatarUrl: string = '';
+  @StorageLink('userRefreshAt') @Watch('onUserRefresh') userRefreshAt: string = '';
   @State posts: CommunityPost[] = [];
   @State todoCount: number = 0;
   @State doneCount: number = 0;
   @State todayFocusMinutes: number = 0;
+  @State loadingPosts: boolean = true;
+  @State postFooterText: string = '';
+  @State refreshing: boolean = false;
+  @State showBackToTop: boolean = false;
+  @State previewUrl: string = '';
+  private pendingDeleteId: string = '';
+  private deleteDialog: CustomDialogController = new CustomDialogController({
+    builder: ConfirmDialog({
+      title: '确认删除',
+      message: '确定要删除这条动态吗？删除后无法恢复。',
+      confirmText: '删除',
+      confirmColor: '#FF4757',
+      onConfirm: () => {
+        this.deletePendingPost();
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center
+  });
+  private scroller: Scroller = new Scroller();
+  private postPager: PagedListController<CommunityPost> =
+    new PagedListController<CommunityPost>((cursor: string) => this.loadSelfPostPage(cursor));
 
   aboutToAppear(): void {
     this.refresh();
+  }
+
+  /** 资料/头像保存后由 MeProfile 触发，重新拉取用户信息。 */
+  onUserRefresh(): void {
+    if (this.userRefreshAt.length > 0) {
+      this.refresh();
+    }
   }
 
   async refresh(): Promise<void> {
@@ -45,12 +83,7 @@ export struct Mine {
       this.avatarUrl = this.user.avatarUrl;
     }
 
-    try {
-      this.posts = await CommunityApi.selfPosts(token, apiEnvironment);
-    } catch (err) {
-      LogUtil.warn('mine', `self posts failed ${(err as Error).message}`);
-      this.posts = [];
-    }
+    await this.loadFirstPosts();
 
     try {
       const tasks = await TaskApi.list(token, apiEnvironment);
@@ -63,11 +96,65 @@ export struct Mine {
     }
 
     try {
-      this.todayFocusMinutes = await FocusApi.today(token, apiEnvironment);
+      const minutes = await FocusApi.today(token, apiEnvironment);
+      this.todayFocusMinutes = Number.isNaN(minutes) ? 0 : minutes;
     } catch (err) {
       LogUtil.warn('mine', `focus failed ${(err as Error).message}`);
       this.todayFocusMinutes = 0;
     }
+  }
+
+  private async loadSelfPostPage(cursor: string): Promise<PageResult<CommunityPost>> {
+    const token = await AuthStore.getToken(this.context);
+    const apiEnvironment = await AuthStore.getApiEnvironment(this.context);
+    try {
+      const posts = await CommunityApi.selfPosts(token, apiEnvironment, cursor);
+      const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : '';
+      const repeated = cursor.length > 0 && nextCursor === cursor;
+      const hasMore = posts.length >= 20 && !repeated;
+      if (cursor.length === 0) {
+        await CacheStore.setJson<CommunityPost[]>(this.context, 'myPosts', posts);
+      }
+      return new PageResult<CommunityPost>(posts, hasMore ? nextCursor : '', hasMore);
+    } catch (err) {
+      LogUtil.warn('mine', `self posts failed cursor=${cursor} ${(err as Error).message}`);
+      if (cursor.length > 0) {
+        throw new Error('加载更多失败，请重试');
+      }
+      const cached = await CacheStore.getJson<CommunityPost[]>(this.context, 'myPosts', []);
+      return new PageResult<CommunityPost>(cached, '', false);
+    }
+  }
+
+  private syncPostPagerState(): void {
+    this.posts = this.postPager.items;
+    this.postFooterText = this.postPager.footerText();
+  }
+
+  async loadFirstPosts(): Promise<void> {
+    this.loadingPosts = true;
+    await this.postPager.refresh();
+    this.syncPostPagerState();
+    this.loadingPosts = false;
+  }
+
+  async onRefresh(): Promise<void> {
+    this.refreshing = true;
+    try {
+      await this.refresh();
+      this.showBackToTop = false;
+    } catch (err) {
+      LogUtil.warn('mine', `refresh failed ${(err as Error).message}`);
+    } finally {
+      this.syncPostPagerState();
+      this.refreshing = false;
+    }
+  }
+
+  async loadMorePosts(): Promise<void> {
+    this.postFooterText = '加载中...';
+    await this.postPager.loadMore();
+    this.syncPostPagerState();
   }
 
   private displayName(): string {
@@ -122,8 +209,12 @@ export struct Mine {
   }
 
   private motivationalText(): string {
-    const quotes: string[] = ['专注成就未来', '心无旁骛行', '深思促成长', '不负好时光', '专注最珍贵', '每分钟都值', '专注超自我', '静心厚积发'];
-    return quotes[new Date().getHours() % quotes.length];
+    const quotes: string[] = ['专注成就未来', '心无旁骛行', '深思促成长', '不负好时光', '专注最珍贵',
+      '每分钟都值', '专注超自我', '静心厚积发', '专注是修行', '坚持专注力'];
+    const now = new Date();
+    const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) /
+      (1000 * 60 * 60 * 24));
+    return quotes[(now.getHours() + dayOfYear) % quotes.length];
   }
 
   private firstAvatarText(): string {
@@ -131,13 +222,7 @@ export struct Mine {
     return name.length > 0 ? name.substring(0, 1) : '用';
   }
 
-  private firstPostImage(post: CommunityPost): string {
-    if (post.imgList && post.imgList.length > 0) {
-      return post.imgList[0];
-    }
-    return post.imageUrl;
-  }
-
+  
   openPage(url: string): void {
     router.pushUrl({ url: url });
   }
@@ -149,7 +234,103 @@ export struct Mine {
     });
   }
 
-  @Builder SchoolInfoRow(icon: string, label: string, value: string) {
+  private postImages(post: CommunityPost): string[] {
+    if (post.imgList && post.imgList.length > 0) {
+      return post.imgList;
+    }
+    return post.imageUrl.length > 0 ? [post.imageUrl] : [];
+  }
+
+  /** 小程序 MyPostCard：浏览量为 0 时随机展示 10–200，这里用 id 做种子保证稳定。 */
+  private viewCountText(post: CommunityPost): string {
+    if (post.viewCount > 0) {
+      return `${post.viewCount}`;
+    }
+    let seed = 0;
+    for (let index = 0; index < post.id.length; index++) {
+      seed += post.id.charCodeAt(index);
+    }
+    return `${10 + (seed % 191)}`;
+  }
+
+  private isContentTruncated(post: CommunityPost): boolean {
+    return post.content.length > 150;
+  }
+
+  /** 与小程序 utils/timeFormat.js 的 formatRelativeTime 一致。 */
+  private formatTime(value: string): string {
+    if (value.length === 0) {
+      return '';
+    }
+    const date = new Date(value.replace(/-/g, '/').replace('T', ' '));
+    const time = date.getTime();
+    if (Number.isNaN(time)) {
+      return value;
+    }
+    const diff = new Date().getTime() - time;
+    if (diff < 60 * 1000) {
+      return '刚刚';
+    }
+    if (diff < 60 * 60 * 1000) {
+      return `${Math.floor(diff / (60 * 1000))}分钟前`;
+    }
+    if (diff < 24 * 60 * 60 * 1000) {
+      return `${Math.floor(diff / (60 * 60 * 1000))}小时前`;
+    }
+    if (diff < 7 * 24 * 60 * 60 * 1000) {
+      return `${Math.floor(diff / (24 * 60 * 60 * 1000))}天前`;
+    }
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }
+
+  /** 与小程序 user store 一致：仅本地切换状态，不调用接口。 */
+  toggleLike(post: CommunityPost): void {
+    const nextLiked = post.isLike !== 1;
+    post.isLike = nextLiked ? 1 : 0;
+    post.liked = nextLiked;
+    post.likeCount = nextLiked ? post.likeCount + 1 : Math.max(post.likeCount - 1, 0);
+    this.posts = this.posts.map((item: CommunityPost) => item.id === post.id ? post : item);
+    this.postPager.items = this.postPager.items.map((item: CommunityPost) => item.id === post.id ? post : item);
+  }
+
+  confirmDelete(post: CommunityPost): void {
+    this.pendingDeleteId = post.id;
+    this.deleteDialog.open();
+  }
+
+  async deletePendingPost(): Promise<void> {
+    const id = this.pendingDeleteId;
+    this.pendingDeleteId = '';
+    if (id.length === 0) {
+      return;
+    }
+    const token = await AuthStore.getToken(this.context);
+    const env = await AuthStore.getApiEnvironment(this.context);
+    try {
+      await CommunityApi.deletePost(token, id, env);
+      this.posts = this.posts.filter((post: CommunityPost) => post.id !== id);
+      this.postPager.items = this.postPager.items.filter((post: CommunityPost) => post.id !== id);
+      await CacheStore.setJson<CommunityPost[]>(this.context, 'myPosts', this.posts);
+      ToastUtil.show('删除成功');
+    } catch (err) {
+      LogUtil.warn('mine', `delete post failed ${(err as Error).message}`);
+      ToastUtil.show('删除失败，请稍后重试');
+    }
+  }
+
+  private profileValue(field: string): string {
+    if (field === 'school') {
+      return this.user.school;
+    }
+    if (field === 'major') {
+      return this.user.major;
+    }
+    return this.user.grade;
+  }
+
+  @Builder SchoolInfoRow(icon: string, label: string, field: string) {
     Row() {
       AppIcon({ name: icon, iconSize: 24 })
         .margin({ right: 12 })
@@ -158,7 +339,7 @@ export struct Mine {
         .fontWeight(FontWeight.Bold)
         .fontColor('#07c160')
         .width(42)
-      Text(value.length > 0 ? value : '未填写')
+      Text(this.profileValue(field).length > 0 ? this.profileValue(field) : '未填写')
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
         .fontColor('#2c3e50')
@@ -175,7 +356,7 @@ export struct Mine {
         Stack({ alignContent: Alignment.Bottom }) {
           Stack({ alignContent: Alignment.TopStart }) {
             if (this.avatarUrl.length > 0) {
-              RemoteImage({
+              NetImage({
                 imageUrl: this.avatarUrl,
                 imageHeight: 64,
                 imageRadius: 32,
@@ -243,18 +424,31 @@ export struct Mine {
         AppIcon({ name: 'profile_publish', iconSize: 25 })
           .width(34)
           .height(34)
+        Text('⚙')
+          .fontSize(20)
+          .fontColor('#FFFFFF')
+          .textAlign(TextAlign.Center)
+          .width(34)
+          .height(34)
+          .margin({ left: 4 })
+          .onClick(() => {
+            this.openPage('pages/MeSetting');
+          })
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 20, bottom: 16 })
-      .backgroundColor('#07c160')
+      .linearGradient({
+        angle: 90,
+        colors: [['#07c160', 0.0], ['#39e28c', 1.0]]
+      })
       .onClick(() => {
         this.openPage('pages/MeProfile');
       })
 
       Column() {
-        this.SchoolInfoRow('profile_school', '学校:', this.user.school)
-        this.SchoolInfoRow('profile_major', '专业:', this.user.major)
-        this.SchoolInfoRow('profile_grade', '年级:', this.user.grade)
+        this.SchoolInfoRow('profile_school', '学校:', 'school')
+        this.SchoolInfoRow('profile_major', '专业:', 'major')
+        this.SchoolInfoRow('profile_grade', '年级:', 'grade')
       }
       .width('100%')
       .padding({ left: 12, right: 12, top: 4, bottom: 8 })
@@ -282,6 +476,9 @@ export struct Mine {
     .onClick(() => {
       if (url.length > 0) {
         this.openPage(url);
+      } else {
+        // 参考 QuickNav 的「消息」项本身无跳转；这里给明确反馈，避免静默无响应。
+        ToastUtil.show('消息功能暂未开放');
       }
     })
   }
@@ -397,6 +594,53 @@ export struct Mine {
     .margin({ top: 12, bottom: 8 })
   }
 
+  /** 动态图片：1 张大图、2 张并排、3 张首图通栏、4 张及以上两列网格（对齐 MyPostCard.vue）。 */
+  @Builder PostImages(post: CommunityPost) {
+    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
+      ForEach(this.postImages(post), (url: string, index: number) => {
+        if (this.postImages(post).length === 1) {
+          NetImage({
+            imageUrl: url,
+            imageHeight: 200,
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width(200)
+            .height(200)
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        } else if (this.postImages(post).length === 3 && index === 0) {
+          NetImage({
+            imageUrl: url,
+            imageHeight: 120,
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width('100%')
+            .margin({ bottom: 3 })
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        } else {
+          NetImage({
+            imageUrl: url,
+            imageHeight: this.postImages(post).length === 2 ? 120 : (this.postImages(post).length === 3 ? 120 : 100),
+            imageRadius: 6,
+            fitMode: 'cover'
+          })
+            .width('48.5%')
+            .margin({ bottom: 3 })
+            .onClick(() => {
+              this.previewUrl = url;
+            })
+        }
+      }, (url: string, index: number) => `${post.id}-${index}-${url}`)
+    }
+    .width('100%')
+    .margin({ top: 10 })
+  }
+
   @Builder MyPostCard(post: CommunityPost) {
     Column() {
       Row() {
@@ -409,58 +653,75 @@ export struct Mine {
           .layoutWeight(1)
 
         Row() {
-          AppIcon({ name: 'community_view', iconSize: 13 })
-            .opacity(0.65)
-          Text(`${post.viewCount === 0 ? 88 : post.viewCount}`)
-            .fontSize(12)
-            .fontColor('#999999')
-            .margin({ left: 3 })
-          AppIcon({ name: post.isLike === 1 ? 'community_liked' : 'community_like', iconSize: 13 })
-            .margin({ left: 8 })
-          Text(`${post.likeCount}`)
-            .fontSize(12)
-            .fontColor(post.isLike === 1 ? '#ff6b6b' : '#999999')
-            .margin({ left: 3 })
-          AppIcon({ name: 'community_comment', iconSize: 13 })
-            .margin({ left: 8 })
-            .opacity(0.7)
-          Text(`${post.commentCount}`)
-            .fontSize(12)
-            .fontColor('#999999')
-            .margin({ left: 3 })
+          Row() {
+            AppIcon({ name: 'community_view', iconSize: 18 })
+              .opacity(0.65)
+            Text(this.viewCountText(post))
+              .fontSize(13)
+              .fontColor('#999999')
+              .margin({ left: 3 })
+          }
+          Row() {
+            AppIcon({ name: post.isLike === 1 ? 'community_liked' : 'community_like', iconSize: 18 })
+            Text(`${post.likeCount}`)
+              .fontSize(13)
+              .fontColor(post.isLike === 1 ? '#ff6b6b' : '#999999')
+              .margin({ left: 3 })
+          }
+          .margin({ left: 10 })
+          .onClick(() => {
+            this.toggleLike(post);
+          })
+          Row() {
+            AppIcon({ name: 'community_comment', iconSize: 18 })
+              .opacity(0.7)
+            Text(`${post.commentCount}`)
+              .fontSize(13)
+              .fontColor('#999999')
+              .margin({ left: 3 })
+          }
+          .margin({ left: 10 })
         }
-        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
         .backgroundColor('#f5f5f5')
         .borderRadius(16)
       }
       .width('100%')
 
-      Text(post.content)
-        .fontSize(15)
-        .fontColor('#333333')
-        .lineHeight(22)
-        .maxLines(5)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 12 })
-        .width('100%')
+      Column() {
+        Text(post.content)
+          .fontSize(15)
+          .fontColor('#333333')
+          .lineHeight(22)
+          .maxLines(5)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+        if (this.isContentTruncated(post)) {
+          Text('... 点击查看全部')
+            .fontSize(13)
+            .fontColor('#007AFF')
+            .margin({ top: 4 })
+        }
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+      .margin({ top: 12 })
 
-      if (this.firstPostImage(post).length > 0) {
-        RemoteImage({
-          imageUrl: this.firstPostImage(post),
-          imageHeight: 200,
-          imageRadius: 6,
-          fitMode: 'cover'
-        })
-          .width(200)
-          .margin({ top: 10 })
+      if (this.postImages(post).length > 0) {
+        this.PostImages(post)
       }
 
       Row() {
-        Text(post.publishTime)
+        Text(this.formatTime(post.publishTime))
           .fontSize(12)
           .fontColor('#999999')
           .layoutWeight(1)
-        AppIcon({ name: 'community_trash', iconSize: 16 })
+        AppIcon({ name: 'community_trash', iconSize: 20 })
+          .width(32)
+          .height(28)
+          .onClick(() => {
+            this.confirmDelete(post);
+          })
       }
       .width('100%')
       .padding({ top: 12 })
@@ -479,25 +740,101 @@ export struct Mine {
   }
 
   build() {
-    Scroll() {
-      Column() {
-        this.UserProfileCard()
-        this.QuickNav()
-        this.CoreFunctions()
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Refresh({ refreshing: $$this.refreshing }) {
+        Scroll(this.scroller) {
+          Column() {
+            this.UserProfileCard()
+            SectionCard({
+              cardBg: '#00000000',
+              showShadow: false,
+              cardPadding: 0
+            }) {
+              Column() {
+                this.QuickNav()
+                this.CoreFunctions()
+              }
+              .width('100%')
+            }
 
-        Column() {
-          ForEach(this.posts, (post: CommunityPost) => {
-            this.MyPostCard(post)
-          }, (post: CommunityPost) => post.id)
+            Column() {
+              if (this.loadingPosts && this.posts.length === 0) {
+                Skeleton({ rows: 3, showAvatar: true })
+                  .margin({ left: 12, right: 12 })
+              } else if (this.posts.length === 0) {
+                EmptyState({
+                  title: '还没有发布动态',
+                  description: '去社区分享你的第一条动态吧',
+                  cardBg: '#FFFFFF'
+                })
+                  .margin({ left: 12, right: 12 })
+              } else {
+                ForEach(this.posts, (post: CommunityPost) => {
+                  this.MyPostCard(post)
+                }, (post: CommunityPost) => `${post.id}-${post.isLike}-${post.likeCount}-${post.commentCount}`)
+                Text(this.postFooterText)
+                  .fontSize(12)
+                  .fontColor('#999999')
+                  .width('100%')
+                  .textAlign(TextAlign.Center)
+                  .padding({ top: 8, bottom: 18 })
+              }
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12, top: 2 })
+          }
+          .width('100%')
+          .padding({ top: 4, bottom: 28 })
         }
         .width('100%')
-        .padding({ left: 12, right: 12, top: 2 })
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .onScroll(() => {
+          this.showBackToTop = Math.abs(this.scroller.currentOffset().yOffset) > 400;
+        })
+        .onScrollEdge((side: Edge) => {
+          if (side === Edge.Bottom) {
+            this.loadMorePosts();
+          }
+        })
       }
       .width('100%')
-      .padding({ top: 4, bottom: 28 })
+      .height('100%')
+      .backgroundColor('#f5f5f5')
+      .onRefreshing(() => {
+        this.onRefresh();
+      })
+
+      BackToTop({
+        visible: this.showBackToTop,
+        onTap: () => {
+          ScrollToTop.toTop(this.scroller);
+          this.showBackToTop = false;
+        }
+      })
+
+      if (this.previewUrl.length > 0) {
+        Column() {
+          Image(this.previewUrl)
+            .width('100%')
+            .height('80%')
+            .objectFit(ImageFit.Contain)
+          Text('点击任意处关闭')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .margin({ top: 18 })
+        }
+        .justifyContent(FlexAlign.Center)
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#000000')
+        .zIndex(30)
+        .onClick(() => {
+          this.previewUrl = '';
+        })
+      }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#f5f5f5')
   }
 }

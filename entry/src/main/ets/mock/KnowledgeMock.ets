@@ -1,0 +1,55 @@
+import { KnowledgeArticle } from '../models/MiniProgramModels';
+import { DYNAMIC_PROGRAMMING_MARKDOWN } from './KnowledgeContent';
+
+export class KnowledgeMock {
+  static knowledgeTabs(): string[] {
+    return ['前端', '后端', '数据库', '算法', '设计模式', '运维', '测试', '安全', '网络', '移动开发', '大数据', '人工智能', '云计算', '架构', '工具'];
+  }
+
+  static knowledgeArticles(): KnowledgeArticle[] {
+    const body = KnowledgeMock.dpMarkdownBlocks();
+    return [
+      new KnowledgeArticle('k-1', '前端', 'Vue3 响应式原理', '深入理解 Vue3 的 Proxy 响应式系统，掌握 Composition API 的核心思想', '高级', ['Vue3', '响应式', 'Proxy'], '15分钟', 4500, '前端小黑', 12850, 342, '2025-03-01', body, true),
+      new KnowledgeArticle('k-2', '前端', 'React Hooks 最佳实践', '掌握 useState、useEffect 等 Hooks 的正确使用方式，避免常见陷阱', '中级', ['React', 'Hooks', '状态管理'], '12分钟', 3800, 'React大神', 9680, 256, '2025-02-28', body, true),
+      new KnowledgeArticle('k-3', '前端', 'Webpack 打包优化', '学习 Webpack 性能优化技巧，提升构建速度和减小包体积', '高级', ['Webpack', '性能优化', '构建工具'], '20分钟', 6200, '性能优化专家', 7540, 189, '2025-02-25', body),
+      new KnowledgeArticle('k-4', '前端', '小程序开发要点', 'uni-app 跨平台开发实战，微信小程序 API 使用技巧', '初级', ['小程序', 'uni-app', '跨平台'], '10分钟', 3200, 'UniApp布道者', 15230, 467, '2025-03-02', body, true),
+      new KnowledgeArticle('k-5', '后端', 'Spring Boot 实战', '从零搭建 Spring Boot 项目，RESTful API 设计与实现', '中级', ['Spring Boot', 'Java', 'RESTful'], '18分钟', 5600, 'Java架构师', 8920, 234, '2025-02-20', body),
+      new KnowledgeArticle('k-6', '后端', 'Node.js 异步编程', '深入理解 Event Loop，掌握 Promise、async/await 的使用', '中级', ['Node.js', '异步', 'Event Loop'], '14分钟', 4200, 'Node极客', 11340, 312, '2025-02-18', body, true),
+      new KnowledgeArticle('k-7', '后端', '微服务架构设计', '微服务拆分原则，服务间通信，分布式事务处理', '高级', ['微服务', '分布式', '架构'], '25分钟', 7800, '架构之道', 6580, 178, '2025-02-15', body),
+      new KnowledgeArticle('k-8', '数据库', 'MySQL 索引优化', '深入理解 B+ 树索引结构，掌握索引优化技巧', '中级', ['MySQL', '索引', '性能优化'], '16分钟', 5100, 'DBA老张', 13670, 389, '2025-02-22', body, true),
+      new KnowledgeArticle('k-9', '数据库', 'Redis 缓存设计', 'Redis 数据类型选择，缓存策略，防止缓存穿透和雪崩', '高级', ['Redis', '缓存', '分布式'], '20分钟', 6400, 'Redis达人', 9830, 278, '2025-02-19', body),
+      new KnowledgeArticle('k-10', '数据库', 'MongoDB 最佳实践', 'NoSQL 数据库设计模式，聚合查询优化', '中级', ['MongoDB', 'NoSQL', '文档数据库'], '15分钟', 4900, 'NoSQL爱好者', 7250, 198, '2025-02-16', body),
+      new KnowledgeArticle('k-11', '算法', '动态规划经典题', '掌握动态规划思想，刷透 LeetCode 经典 DP 问题', '高级', ['动态规划', 'LeetCode', '算法'], '30分钟', 9200, 'LeetCode高手', 18450, 567, '2025-02-28', body, true),
+      new KnowledgeArticle('k-12', '算法', '二叉树遍历', '前序、中序、后序遍历的递归与非递归实现', '初级', ['二叉树', '遍历', '递归'], '12分钟', 3800, '算法小白', 21340, 645, '2025-03-03', body, true),
+      new KnowledgeArticle('k-13', '算法', '图论算法入门', 'BFS 和 DFS 算法，最短路径问题解决方案', '中级', ['图论', 'BFS', 'DFS'], '22分钟', 6800, '图论专家', 10920, 312, '2025-02-24', body),
+      new KnowledgeArticle('k-20', '算法', '快速排序与归并排序', '深入理解分治思想，掌握经典排序算法的实现与优化', '中级', ['排序算法', '分治', '快速排序'], '18分钟', 5600, '排序大师', 15670, 423, '2025-03-01', body, true),
+      new KnowledgeArticle('k-21', '算法', '二分查找及其变种', '掌握二分查找的标准写法，理解边界条件处理', '初级', ['搜索', '二分查找', '数组'], '14分钟', 4200, '搜索达人', 18930, 512, '2025-02-27', body, true),
+      new KnowledgeArticle('k-22', '算法', '贪心算法实战', '贪心算法的设计思想与经典应用场景解析', '中级', ['贪心', '算法思想', 'LeetCode'], '20分钟', 6300, '贪心策略', 9450, 267, '2025-02-20', body),
+      new KnowledgeArticle('k-23', '算法', '回溯算法解题模板', '掌握回溯算法核心框架，解决排列组合与子集问题', '高级', ['回溯', 'DFS', '排列组合'], '25分钟', 7800, '回溯专家', 11280, 345, '2025-02-18', body),
+      new KnowledgeArticle('k-24', '算法', '滑动窗口技巧', '滑动窗口解决子串、子数组问题的通用方法', '中级', ['滑动窗口', '双指针', '字符串'], '16分钟', 4900, '窗口侠', 13450, 389, '2025-02-23', body, true),
+      new KnowledgeArticle('k-25', '算法', '链表高频题汇总', '反转链表、环形链表、链表相交等经典题型', '初级', ['链表', '数据结构', '指针'], '15分钟', 4600, '链表杀手', 20150, 587, '2025-03-02', body, true),
+      new KnowledgeArticle('k-26', '算法', '哈希表应用技巧', '利用哈希表优化查找和去重操作的时间复杂度', '中级', ['哈希表', '查找', '优化'], '13分钟', 4000, '哈希达人', 14320, 412, '2025-02-25', body),
+      new KnowledgeArticle('k-27', '算法', '栈与队列经典应用', '单调栈、括号匹配、表达式求值等实际问题', '中级', ['栈', '队列', '数据结构'], '17分钟', 5300, '栈队精通', 11760, 334, '2025-02-21', body),
+      new KnowledgeArticle('k-28', '算法', '字符串处理技巧', 'KMP算法、正则表达式、字符串常用操作总结', '高级', ['字符串', 'KMP', '模式匹配'], '22分钟', 6900, '字符串专家', 8940, 256, '2025-02-19', body),
+      new KnowledgeArticle('k-14', '设计模式', '单例模式的多种实现', '饿汉式、懒汉式、双重检查锁等单例模式实现方式', '初级', ['单例模式', '创建型', '设计模式'], '10分钟', 3100, '设计模式爱好者', 14230, 423, '2025-02-27', body),
+      new KnowledgeArticle('k-15', '设计模式', '观察者模式应用', '发布-订阅模式在 Vue 和 React 中的实际应用', '中级', ['观察者模式', '行为型', '响应式'], '15分钟', 4700, '设计模式精通', 11890, 334, '2025-02-23', body),
+      new KnowledgeArticle('k-16', '设计模式', '工厂模式实战', '简单工厂、工厂方法、抽象工厂的使用场景', '中级', ['工厂模式', '创建型', 'OOP'], '18分钟', 5400, 'OOP实践者', 9670, 276, '2025-02-21', body),
+      new KnowledgeArticle('k-17', '运维', 'Docker 容器化部署', 'Docker 基础命令，Dockerfile 编写，容器编排', '中级', ['Docker', '容器化', 'DevOps'], '20分钟', 6100, 'Docker达人', 13450, 387, '2025-02-26', body, true),
+      new KnowledgeArticle('k-18', '运维', 'Linux 常用命令', '文件操作、进程管理、网络排查等必备命令', '初级', ['Linux', 'Shell', '命令行'], '15分钟', 4600, 'Linux老司机', 24560, 723, '2025-03-04', body, true),
+      new KnowledgeArticle('k-19', '运维', 'Nginx 配置优化', '反向代理、负载均衡、缓存配置与性能优化', '高级', ['Nginx', 'Web服务器', '负载均衡'], '25分钟', 7600, '运维专家', 8790, 245, '2025-02-17', body)
+    ];
+  }
+
+  /**
+   * 参考实现的知识正文：dynamic-programming.js。
+   * 小程序 article.vue 对任意 id 都渲染同一篇正文，这里保持同样行为。
+   */
+  static dpMarkdownBlocks(): string[] {
+    return [DYNAMIC_PROGRAMMING_MARKDOWN];
+  }
+
+  /** 拼接为 Markdown 源文本，供 MarkdownView 渲染。 */
+  static articleMarkdown(article: KnowledgeArticle): string {
+    return article.content.join('\n\n');
+  }
+}

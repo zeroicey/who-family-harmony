@@ -4,29 +4,63 @@ import { PrintOrder } from '../models/MiniProgramModels';
 import { PrintApi } from '../api/PrintApi';
 import { AuthStore } from '../stores/AuthStore';
 import { CacheStore } from '../stores/CacheStore';
-import { MockData } from '../utils/MockData';
 import { ToastUtil } from '../utils/ToastUtil';
 
+import { EmptyState } from '../components/common/EmptyState';
+import { PageHeader } from '../components/common/PageHeader';
+import { Skeleton } from '../components/common/Skeleton';
 @Entry
 @Component
 struct MeOrder {
   private context: common.UIAbilityContext = getContext(this) as common.UIAbilityContext;
-  @State orders: PrintOrder[] = MockData.printOrders();
+  @State orders: PrintOrder[] = [];
   @State activeFilter: string = 'all';
+  @State loading: boolean = true;
 
   aboutToAppear(): void {
     this.load();
   }
 
+  private safeText(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === 0) {
+      return '';
+    }
+    return `${value}`;
+  }
+
+  /** 后端字段可能为 null，先归一化再进列表，避免渲染期读取 null。 */
+  private normalizeOrder(raw: PrintOrder): PrintOrder {
+    const order = new PrintOrder(
+      this.safeText(raw.id),
+      this.safeText(raw.type).length > 0 ? this.safeText(raw.type) : '派送服务',
+      this.safeText(raw.address),
+      this.safeText(raw.name),
+      this.safeText(raw.phone),
+      Number(raw.count) > 0 ? Number(raw.count) : 1,
+      this.safeText(raw.fileName),
+      this.safeText(raw.remark),
+      this.safeText(raw.status).length > 0 ? this.safeText(raw.status) : '待处理',
+      this.safeText(raw.createdAt)
+    );
+    order.startOrderTime = this.safeText(raw.startOrderTime);
+    order.endOrderTime = this.safeText(raw.endOrderTime);
+    return order;
+  }
+
   async load(): Promise<void> {
+    this.loading = true;
     const token = await AuthStore.getToken(this.context);
     const env = await AuthStore.getApiEnvironment(this.context);
     try {
       const remote = await PrintApi.selfOrders(token, env);
-      this.orders = remote.length > 0 ? remote : MockData.printOrders();
+      // 与参考一致：后端返回空数组时展示空态，不用演示订单顶替。
+      this.orders = remote.map((raw: PrintOrder) => this.normalizeOrder(raw));
       await CacheStore.setJson<PrintOrder[]>(this.context, 'printOrders', this.orders);
     } catch (_) {
-      this.orders = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', MockData.printOrders());
+      const cached = await CacheStore.getJson<PrintOrder[]>(this.context, 'printOrders', []);
+      this.orders = cached.map((raw: PrintOrder) => this.normalizeOrder(raw));
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -42,33 +76,37 @@ struct MeOrder {
   }
 
   private statusColor(status: string): string {
-    if (status === '已完成') {
-      return '#52C41A';
-    }
     if (status === '处理中') {
-      return '#1890FF';
+      return '#1976D2';
+    }
+    if (status === '已完成') {
+      return '#388E3C';
     }
     if (status === '已取消') {
-      return '#999999';
+      return '#D32F2F';
     }
-    return '#FA8C16';
+    return '#F57C00';
   }
 
   private statusBg(status: string): string {
-    if (status === '已完成') {
-      return '#F6FFED';
-    }
     if (status === '处理中') {
-      return '#E6F7FF';
+      return '#E3F2FD';
+    }
+    if (status === '已完成') {
+      return '#E8F5E8';
     }
     if (status === '已取消') {
-      return '#F5F5F5';
+      return '#FCE4EC';
     }
-    return '#FFF2E8';
+    return '#FFF3E0';
   }
 
+  /** 小程序订单头部展示下单时间（startOrderTime）。 */
   private createdText(order: PrintOrder): string {
-    return order.createdAt.length > 0 ? order.createdAt : '刚刚';
+    if (order.startOrderTime.length > 0) {
+      return order.startOrderTime;
+    }
+    return '刚刚';
   }
 
   gotoPrint(): void {
@@ -122,13 +160,14 @@ struct MeOrder {
     if (value.length > 0) {
       Row() {
         Text(label)
-          .fontSize(13)
-          .fontColor('#999999')
-          .width(76)
+          .fontSize(14)
+          .fontColor('#666666')
+          .width(80)
         Text(value)
-          .fontSize(13)
+          .fontSize(14)
           .fontColor('#333333')
           .layoutWeight(1)
+          .textAlign(TextAlign.End)
       }
       .width('100%')
       .margin({ top: 6 })
@@ -184,22 +223,24 @@ struct MeOrder {
         .margin({ left: 10 })
         Text(`${order.count}份`)
           .fontSize(13)
-          .fontColor('#666666')
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#007AFF')
       }
       .width('100%')
       .padding({ top: 14, bottom: 10 })
+      .border({ width: { bottom: 1 }, color: '#F0F0F0' })
 
       Column() {
         this.InfoRow('服务方式:', order.type)
         this.InfoRow('联系人:', order.name)
         this.InfoRow('联系电话:', order.phone)
-        this.InfoRow('配送地址:', order.address)
+        this.InfoRow('配送地址:', order.type === '派送服务' ? order.address : '')
         this.InfoRow('备注:', order.remark)
+        this.InfoRow('创建时间:', order.startOrderTime)
+        this.InfoRow('完成时间:', order.endOrderTime)
       }
       .width('100%')
-      .padding(12)
-      .backgroundColor('#FAFAFA')
-      .borderRadius(8)
+      .padding({ top: 10 })
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -210,48 +251,31 @@ struct MeOrder {
     .shadow({ radius: 6, color: '#14000000', offsetX: 0, offsetY: 2 })
   }
 
-  @Builder
-  EmptyState() {
-    Column() {
-      Text('☰')
-        .fontSize(60)
-        .fontColor('#CCCCCC')
-      Text('暂无订单记录')
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor('#999999')
-        .margin({ top: 12 })
-      Text('您还没有任何打印订单')
-        .fontSize(13)
-        .fontColor('#B0B0B0')
-        .margin({ top: 6 })
-      Button('去打印')
-        .height(40)
-        .fontSize(14)
-        .fontColor('#FFFFFF')
-        .backgroundColor('#007AFF')
-        .borderRadius(20)
-        .margin({ top: 18 })
-        .onClick(() => {
-          this.gotoPrint();
-        })
-    }
-    .justifyContent(FlexAlign.Center)
-    .width('100%')
-    .height(420)
-  }
-
   build() {
     Column() {
+      PageHeader({ title: '我的订单' })
       this.FilterTabs()
       Scroll() {
         Column() {
-          if (this.visibleOrders().length > 0) {
+          if (this.loading) {
+            Skeleton({ rows: 4, showAvatar: false })
+              .margin({ top: 10 })
+          } else if (this.visibleOrders().length > 0) {
             ForEach(this.visibleOrders(), (order: PrintOrder) => {
               this.OrderCard(order)
             }, (order: PrintOrder) => order.id)
           } else {
-            this.EmptyState()
+            EmptyState({
+              title: '暂无订单记录',
+              description: '您还没有任何打印订单',
+              iconText: '☰',
+              actionText: '去打印',
+              cardBg: '#FFFFFF',
+              onAction: () => {
+                this.gotoPrint();
+              }
+            })
+              .margin({ top: 40 })
           }
         }
         .width('100%')
